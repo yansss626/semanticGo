@@ -11,6 +11,7 @@ RUN chmod +x /usr/bin/curl
 MAINTAINER nick
 WORKDIR /app/
 ADD ./dev.config.yaml /app/config.yaml
+ADD ./www /app/www
 COPY --from=stage0 /src/ai-chat-backend/ai-chat-backend ./
 # 指定入口程序
 ENTRYPOINT ["./ai-chat-backend"]
