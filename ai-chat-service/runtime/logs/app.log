@@ -1,0 +1,1 @@
+time="2024-09-20T14:44:21+08:00" level=error msg="grpc: no transport security set (use grpc.WithTransportCredentials(insecure.NewCredentials()) explicitly or set credentials)" file="E:/Work/Code/go/5.0/2404/ai-chat/ai-chat-service/services/grpc-client/grpc_client_pool.go:25" func=ai-chat-service/services/grpc-client.NewPool.func1
