@@ -3,6 +3,7 @@ package server
 import (
 	chat_context "ai-chat-service/chat-server/chat-context"
 	"ai-chat-service/chat-server/data"
+	metrics_bus "ai-chat-service/chat-server/metrics-bus"
 	vector_data "ai-chat-service/chat-server/vector-data"
 	"ai-chat-service/pkg/config"
 	"ai-chat-service/pkg/log"
@@ -25,14 +26,16 @@ type chatService struct {
 	log        log.ILogger
 	data       data.IChatRecordsData
 	vectorData vector_data.IChatRecordsData
+	busMetrics *metrics_bus.BusMetrics
 }
 
-func NewChatService(data data.IChatRecordsData, vectorData vector_data.IChatRecordsData, config *config.Config, log log.ILogger) proto.ChatServer {
+func NewChatService(data data.IChatRecordsData, vectorData vector_data.IChatRecordsData, config *config.Config, log log.ILogger, busMetrics *metrics_bus.BusMetrics) proto.ChatServer {
 	return &chatService{
 		config:     config,
 		log:        log,
 		data:       data,
 		vectorData: vectorData,
+		busMetrics: busMetrics,
 	}
 }
 
@@ -158,10 +161,12 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 	//敏感词过滤
 	ok, msg, err := app.sensitive(in)
 	if err != nil {
+		s.busMetrics.ErrQuestionsTotalCounter.Inc()
 		s.log.Error(err)
 		return err
 	}
 	if !ok {
+		s.busMetrics.SensitiveQuestionsTotalCounter.Inc()
 		resId := uuid.New().String()
 		startRes := app.buildChatCompletionStreamResponse(resId, "", "")
 		endRes := app.buildChatCompletionStreamResponse(resId, "", "stop")
@@ -190,6 +195,7 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 	keywords := app.keywords(in)
 
 	if len(keywords) > 0 {
+		s.busMetrics.KeywordsQuestionsTotalCounter.Inc()
 		idStr, score, err := s.vectorData.QueryData(context.Background(), map[string][]string{"keywords": {strings.Join(keywords, ",")}})
 		if err != nil {
 			s.log.Error(err)
@@ -233,6 +239,7 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 	req, tokens, currTokens, currMessage, err := app.buildChatCompletionRequest(in, false)
 	chatStream, err := client.CreateChatCompletionStream(stream.Context(), req)
 	if err != nil {
+		s.busMetrics.ErrQuestionsTotalCounter.Inc()
 		s.log.Error(err)
 		return err
 	}
@@ -279,6 +286,7 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 	}
 	resultTokens, err := tokenizer.GetTokens(&resultMessage, model)
 	if err != nil {
+		s.busMetrics.ErrQuestionsTotalCounter.Inc()
 		s.log.Error(err)
 		return err
 	}
@@ -308,6 +316,7 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 		}
 	}()
 	go func() {
+		s.busMetrics.QuestionsTotalCounter.Inc()
 		records := &data.ChatRecord{
 			UserMsg:         in.Message,
 			UserMsgTokens:   currTokens,

@@ -2,6 +2,8 @@ package main
 
 import (
 	"ai-chat-service/chat-server/data"
+	metrics_app "ai-chat-service/chat-server/metrics-app"
+	metrics_bus "ai-chat-service/chat-server/metrics-bus"
 	"ai-chat-service/chat-server/server"
 	vector_data "ai-chat-service/chat-server/vector-data"
 	"ai-chat-service/interceptor"
@@ -13,9 +15,13 @@ import (
 	"ai-chat-service/proto"
 	"flag"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
+	"net/http"
 
 	"net"
 )
@@ -26,6 +32,12 @@ var (
 
 func main() {
 	flag.Parse()
+	registry := prometheus.NewRegistry()
+	registry.MustRegister(collectors.NewGoCollector(), collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
+	busMetrics := metrics_bus.NewBusMetrics(registry)
+
+	http.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
+	go http.ListenAndServe(":8080", nil)
 
 	//初始化配置文件
 	config.InitConfig(*configFile)
@@ -53,8 +65,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	s := grpc.NewServer(grpc.UnaryInterceptor(interceptor.UnaryAuthInterceptor))
-	service := server.NewChatService(recordsData, vector_data.NewChatRecordsData(cnf, vector.GetVdb()), cnf, logger)
+	s := grpc.NewServer(grpc.UnaryInterceptor(interceptor.UnaryAuthInterceptor), grpc.StreamInterceptor(metrics_app.NewStreamMiddleware(registry).WrapHandler()))
+	service := server.NewChatService(recordsData, vector_data.NewChatRecordsData(cnf, vector.GetVdb()), cnf, logger, busMetrics)
 	proto.RegisterChatServer(s, service)
 
 	healthCheckSrv := health.NewServer()
