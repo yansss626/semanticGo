@@ -2,6 +2,7 @@ package server
 
 import (
 	chat_context "ai-chat-service/chat-server/chat-context"
+	chat_round "ai-chat-service/chat-server/chat-round"
 	"ai-chat-service/pkg/config"
 	"ai-chat-service/pkg/log"
 	"ai-chat-service/pkg/zerror"
@@ -11,9 +12,10 @@ import (
 	keywords_proto "ai-chat-service/services/keywords-filter/proto"
 	"ai-chat-service/services/tokenizer"
 	"context"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/sashabaranov/go-openai"
-	"time"
 )
 
 const ChatPrimedTokens = 2
@@ -290,4 +292,17 @@ func (a *app) sensitive(in *proto.ChatCompletionRequest) (ok bool, msg string, e
 		msg = "触发到了知识盲区，请换个问题再问"
 	}
 	return
+}
+
+func (a *app) saveRound(question string, answer string) error {
+	client, err := chat_round.GetClient()
+	if err != nil {
+		return err
+	}
+	defer chat_round.PutClient(client)
+	err = client.Set(question, answer)
+	if err != nil {
+		return err
+	}
+	return nil
 }

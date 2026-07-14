@@ -1,12 +1,13 @@
 package proxy
 
 import (
-	"github.com/gin-gonic/gin"
 	"net/http/httputil"
 	"net/url"
 	"openai-api-proxy/pkg/config"
 	"openai-api-proxy/pkg/log"
 	"strings"
+
+	"github.com/gin-gonic/gin"
 )
 
 type Proxy struct {

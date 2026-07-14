@@ -3,9 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/health"
-	"google.golang.org/grpc/health/grpc_health_v1"
 	"keywords-filter/filter-server/interceptor"
 	"keywords-filter/filter-server/server"
 	"keywords-filter/pkg/config"
@@ -13,6 +10,10 @@ import (
 	"keywords-filter/pkg/log"
 	"keywords-filter/proto"
 	"net"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
 var (

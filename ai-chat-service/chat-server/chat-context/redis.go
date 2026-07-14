@@ -4,8 +4,9 @@ import (
 	predis "ai-chat-service/pkg/db/redis"
 	"context"
 	"encoding/json"
-	"github.com/redis/go-redis/v9"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 )
 
 type redisCache struct {

@@ -1,6 +1,6 @@
 module ai-chat-service
 
-go 1.20
+go 1.21
 
 require (
 	github.com/go-sql-driver/mysql v1.8.1
@@ -9,6 +9,7 @@ require (
 	github.com/prometheus/client_golang v1.20.4
 	github.com/redis/go-redis/v9 v9.6.1
 	github.com/sashabaranov/go-openai v1.9.4
+	github.com/silenceper/pool v1.0.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.19.0
 	github.com/tencent/vectordatabase-sdk-go v1.3.5

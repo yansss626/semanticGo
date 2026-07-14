@@ -8,6 +8,7 @@ import (
 	vector_data "ai-chat-service/chat-server/vector-data"
 	"ai-chat-service/interceptor"
 	"ai-chat-service/pkg/config"
+	"ai-chat-service/pkg/db/kvstore"
 	"ai-chat-service/pkg/db/mysql"
 	"ai-chat-service/pkg/db/redis"
 	"ai-chat-service/pkg/db/vector"
@@ -15,13 +16,14 @@ import (
 	"ai-chat-service/proto"
 	"flag"
 	"fmt"
+	"net/http"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
-	"net/http"
 
 	"net"
 )
@@ -58,6 +60,8 @@ func main() {
 	redis.InitRedisPool(cnf)
 	// 初始化向量数据库
 	vector.InitDB(cnf)
+
+	kvstore.InitKvstorePool(cnf)
 
 	recordsData := data.NewChatRecordsData(mysql.GetDB())
 

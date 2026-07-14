@@ -13,6 +13,7 @@ import (
 
 	"ai-chat-backend/pkg/controllers"
 	"ai-chat-backend/pkg/middlewares"
+
 	"github.com/gin-gonic/gin"
 )
 

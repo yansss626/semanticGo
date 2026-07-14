@@ -2,11 +2,12 @@ package filter
 
 import (
 	"bufio"
-	"github.com/importcjj/sensitive"
 	"keywords-filter/pkg/log"
 	"os"
 	"regexp"
 	"strings"
+
+	"github.com/importcjj/sensitive"
 )
 
 type IFilter interface {

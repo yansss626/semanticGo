@@ -1,8 +1,9 @@
 package config
 
 import (
-	"github.com/spf13/viper"
 	"log"
+
+	"github.com/spf13/viper"
 )
 
 type Config struct {
@@ -39,6 +40,10 @@ type Config struct {
 		Host string
 		Port int
 		Pwd  string `mapstructure:"pwd"`
+	}
+	Kvstore struct {
+		Host string
+		Port int
 	}
 	DependOn struct {
 		Sensitive struct {

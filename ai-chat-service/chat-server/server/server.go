@@ -11,13 +11,14 @@ import (
 	"ai-chat-service/services/tokenizer"
 	"context"
 	"encoding/json"
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/google/uuid"
-	"github.com/sashabaranov/go-openai"
 	"io"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/google/uuid"
+	"github.com/sashabaranov/go-openai"
 )
 
 type chatService struct {
@@ -95,6 +96,13 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 		s.log.Error(err)
 		return nil, err
 	}
+	go func() {
+		err := app.saveRound(currMessage.Content, resp.Choices[0].Message.Content)
+		if err != nil {
+			s.log.Error(err)
+			return
+		}
+	}()
 	go func() {
 		reqContext := &chat_context.ChatMessage{
 			ID:      in.Id,
@@ -291,6 +299,13 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 		return err
 	}
 
+	go func() {
+		err := app.saveRound(currMessage.Content, resultMessage.Content)
+		if err != nil {
+			s.log.Error(err)
+			return
+		}
+	}()
 	go func() {
 		reqContext := &chat_context.ChatMessage{
 			ID:      in.Id,
