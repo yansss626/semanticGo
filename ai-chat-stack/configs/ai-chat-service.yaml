@@ -12,7 +12,7 @@ chat:
   # openai 接口地址
   base_url: "http://192.168.184.138:8084/v1"
   # 使用的训练模型
-  model: "gpt-3.5-turbo"
+  model: "gpt-4o-mini"
   # 单次请求的上下文总长度,包括：请求消息+响应消息
   max_tokens: 4096
   # 表示语言模型输出的随机性和创造性
@@ -40,14 +40,20 @@ redis:
   host: "192.168.239.161"
   port: 6379
   pwd: "123456"
+  # 选择是否开启 redis 保存上下文功能
+  enabled: false 
 kvstore:
   host: "192.168.184.138"
   port: 2000
+  # 选择是否开启 kvstore
+  enabled: true 
 mysql:
   dsn: "root:123456@tcp(192.168.239.161:3306)/ai_chat?collation=utf8mb4_unicode_ci&charset=utf8mb4"
   maxLifeTime: 3600
   maxOpenConn: 10
   maxIdleConn: 10
+  # 选择是否开启 mysql
+  enabled: false
 dependOn:
   sensitive:
     address: "sensitive:50051"
@@ -73,3 +79,5 @@ vectorDB:
   readConsistency: "eventualConsistency"
   # 空闲连接超时时长s
   idleConnTimeout: 60
+  # 选择是否开启 vectorDB
+  enabled: false

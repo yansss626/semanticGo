@@ -55,13 +55,21 @@ func main() {
 	logger.SetPrintCaller(true)
 
 	// 初始化Mysql
-	mysql.InitMysql(cnf)
+	if cnf.Mysql.Enabled {
+		mysql.InitMysql(cnf)
+	}
 	// 初始化redis
-	redis.InitRedisPool(cnf)
+	if cnf.Redis.Enabled {
+		redis.InitRedisPool(cnf)
+	}
 	// 初始化向量数据库
-	vector.InitDB(cnf)
-
-	kvstore.InitKvstorePool(cnf)
+	if cnf.VectorDB.Enabled {
+		vector.InitDB(cnf)
+	}
+	// 初始化kvstore
+	if cnf.Kvstore.Enabled {
+		kvstore.InitKvstorePool(cnf)
+	}
 
 	recordsData := data.NewChatRecordsData(mysql.GetDB())
 

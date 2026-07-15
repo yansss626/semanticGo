@@ -35,15 +35,18 @@ type Config struct {
 		MaxLifeTime int
 		MaxOpenConn int
 		MaxIdleConn int
+		Enabled     bool
 	}
 	Redis struct {
-		Host string
-		Port int
-		Pwd  string `mapstructure:"pwd"`
+		Host    string
+		Port    int
+		Pwd     string `mapstructure:"pwd"`
+		Enabled bool
 	}
 	Kvstore struct {
-		Host string
-		Port int
+		Host    string
+		Port    int
+		Enabled bool
 	}
 	DependOn struct {
 		Sensitive struct {
@@ -67,6 +70,7 @@ type Config struct {
 		MaxIdleConnPerHost int
 		ReadConsistency    string
 		IdleConnTimeout    int
+		Enabled            bool
 	}
 }
 

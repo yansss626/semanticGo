@@ -6,7 +6,7 @@ log:
   logPath: "runtime/logs/app.log"
 chat:
   # 使用的训练模型
-  model: "gpt-3.5-turbo"
+  model: "gpt-4o-mini"
   # 单次请求的上下文总长度,包括：请求消息+响应消息
   max_tokens: 4096
   # 表示语言模型输出的随机性和创造性

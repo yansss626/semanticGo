@@ -41,8 +41,13 @@ func NewChatService(data data.IChatRecordsData, vectorData vector_data.IChatReco
 }
 
 func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompletionRequest) (*proto.ChatCompletionResponse, error) {
-	redisContextCache := chat_context.NewRedisCache()
-	defer redisContextCache.Close()
+	cnf := config.GetConfig()
+
+	var redisContextCache chat_context.ContextCache
+	if cnf.Redis.Enabled {
+		redisContextCache = chat_context.NewRedisCache()
+		defer redisContextCache.Close()
+	}
 
 	app := s.newApp(in, redisContextCache)
 	//敏感词过滤
@@ -58,7 +63,7 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 
 	//关键词提取
 	keywords := app.keywords(in)
-	if len(keywords) > 0 {
+	if len(keywords) > 0 && cnf.Mysql.Enabled && cnf.VectorDB.Enabled {
 		idStr, score, err := s.vectorData.QueryData(context.Background(), map[string][]string{"keywords": {strings.Join(keywords, ",")}})
 		if err != nil {
 			s.log.Error(err)
@@ -96,74 +101,88 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 		s.log.Error(err)
 		return nil, err
 	}
-	go func() {
-		err := app.saveRound(currMessage.Content, resp.Choices[0].Message.Content)
-		if err != nil {
-			s.log.Error(err)
-			return
-		}
-	}()
-	go func() {
-		reqContext := &chat_context.ChatMessage{
-			ID:      in.Id,
-			PID:     in.Pid,
-			Message: currMessage,
-			Tokens:  currTokens,
-		}
-		err := app.saveContext(reqContext)
-		if err != nil {
-			s.log.Error(err)
-			return
-		}
-		resContext := &chat_context.ChatMessage{
-			ID:      resp.ID,
-			PID:     reqContext.ID,
-			Message: resp.Choices[0].Message,
-			Tokens:  resp.Usage.CompletionTokens,
-		}
-		err = app.saveContext(resContext)
-		if err != nil {
-			s.log.Error(err)
-			return
-		}
-	}()
-	go func() {
-		records := &data.ChatRecord{
-			UserMsg:         in.Message,
-			UserMsgTokens:   currTokens,
-			UserMsgKeywords: keywords,
-			AIMsg:           resp.Choices[0].Message.Content,
-			AIMsgTokens:     resp.Usage.CompletionTokens,
-			ReqTokens:       tokens,
-			CreateAt:        time.Now().Unix(),
-		}
-		err := s.data.Add(records)
-		if err != nil {
-			s.log.Error(err)
-			return
-		}
-		//保存到向量数据库
-		if len(keywords) > 0 {
-			list := []*vector_data.ChatRecord{
-				{
-					ID: strconv.FormatInt(records.ID, 10),
-					KVs: map[string]string{
-						"keywords": strings.Join(keywords, ","),
-					},
-				},
-			}
-			err = s.vectorData.UpsertData(context.Background(), list)
+	// kvstore 保存每次对话的问题和答案
+	if cnf.Kvstore.Enabled {
+		go func() {
+			err := app.saveRound(currMessage.Content, resp.Choices[0].Message.Content)
 			if err != nil {
 				s.log.Error(err)
 				return
 			}
-		}
-	}()
+		}()
+	}
+	// redis 保存上下文
+	if cnf.Redis.Enabled {
+		go func() {
+			reqContext := &chat_context.ChatMessage{
+				ID:      in.Id,
+				PID:     in.Pid,
+				Message: currMessage,
+				Tokens:  currTokens,
+			}
+			err := app.saveContext(reqContext)
+			if err != nil {
+				s.log.Error(err)
+				return
+			}
+			resContext := &chat_context.ChatMessage{
+				ID:      resp.ID,
+				PID:     reqContext.ID,
+				Message: resp.Choices[0].Message,
+				Tokens:  resp.Usage.CompletionTokens,
+			}
+			err = app.saveContext(resContext)
+			if err != nil {
+				s.log.Error(err)
+				return
+			}
+		}()
+	}
+	// mysql, vectorDB 保存对话记录
+	if cnf.Mysql.Enabled {
+		go func() {
+			records := &data.ChatRecord{
+				UserMsg:         in.Message,
+				UserMsgTokens:   currTokens,
+				UserMsgKeywords: keywords,
+				AIMsg:           resp.Choices[0].Message.Content,
+				AIMsgTokens:     resp.Usage.CompletionTokens,
+				ReqTokens:       tokens,
+				CreateAt:        time.Now().Unix(),
+			}
+			err := s.data.Add(records)
+			if err != nil {
+				s.log.Error(err)
+				return
+			}
+			//保存到向量数据库
+			if len(keywords) > 0 && cnf.VectorDB.Enabled {
+				list := []*vector_data.ChatRecord{
+					{
+						ID: strconv.FormatInt(records.ID, 10),
+						KVs: map[string]string{
+							"keywords": strings.Join(keywords, ","),
+						},
+					},
+				}
+				err = s.vectorData.UpsertData(context.Background(), list)
+				if err != nil {
+					s.log.Error(err)
+					return
+				}
+			}
+		}()
+	}
 	return res, err
 }
 func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stream proto.Chat_ChatCompletionStreamServer) error {
-	redisContextCache := chat_context.NewRedisCache()
-	defer redisContextCache.Close()
+	cnf := config.GetConfig()
+
+	var redisContextCache chat_context.ContextCache
+	if cnf.Redis.Enabled {
+		redisContextCache = chat_context.NewRedisCache()
+		defer redisContextCache.Close()
+	}
 
 	app := s.newApp(in, redisContextCache)
 	//敏感词过滤
@@ -202,7 +221,7 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 	//关键词提取
 	keywords := app.keywords(in)
 
-	if len(keywords) > 0 {
+	if len(keywords) > 0 && cnf.Mysql.Enabled && cnf.VectorDB.Enabled {
 		s.busMetrics.KeywordsQuestionsTotalCounter.Inc()
 		idStr, score, err := s.vectorData.QueryData(context.Background(), map[string][]string{"keywords": {strings.Join(keywords, ",")}})
 		if err != nil {
@@ -299,69 +318,75 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 		return err
 	}
 
-	go func() {
-		err := app.saveRound(currMessage.Content, resultMessage.Content)
-		if err != nil {
-			s.log.Error(err)
-			return
-		}
-	}()
-	go func() {
-		reqContext := &chat_context.ChatMessage{
-			ID:      in.Id,
-			PID:     in.Pid,
-			Message: currMessage,
-			Tokens:  currTokens,
-		}
-		err := app.saveContext(reqContext)
-		if err != nil {
-			s.log.Error(err)
-			return
-		}
-		resContext := &chat_context.ChatMessage{
-			ID:      resultID,
-			PID:     reqContext.ID,
-			Message: resultMessage,
-			Tokens:  resultTokens,
-		}
-		err = app.saveContext(resContext)
-		if err != nil {
-			s.log.Error(err)
-			return
-		}
-	}()
-	go func() {
-		s.busMetrics.QuestionsTotalCounter.Inc()
-		records := &data.ChatRecord{
-			UserMsg:         in.Message,
-			UserMsgTokens:   currTokens,
-			UserMsgKeywords: keywords,
-			AIMsg:           completionContent,
-			AIMsgTokens:     resultTokens,
-			ReqTokens:       tokens,
-			CreateAt:        time.Now().Unix(),
-		}
-		err := s.data.Add(records)
-		if err != nil {
-			s.log.Error(err)
-			return
-		}
-		//保存到向量数据库
-		if len(keywords) > 0 {
-			list := []*vector_data.ChatRecord{
-				{
-					ID: strconv.FormatInt(records.ID, 10),
-					KVs: map[string]string{
-						"keywords": strings.Join(keywords, ","),
-					},
-				},
-			}
-			err = s.vectorData.UpsertData(context.Background(), list)
+	if cnf.Kvstore.Enabled {
+		go func() {
+			err := app.saveRound(currMessage.Content, resultMessage.Content)
 			if err != nil {
 				s.log.Error(err)
 				return
 			}
-		}
-	}()
+		}()
+	}
+	if cnf.Redis.Enabled {
+		go func() {
+			reqContext := &chat_context.ChatMessage{
+				ID:      in.Id,
+				PID:     in.Pid,
+				Message: currMessage,
+				Tokens:  currTokens,
+			}
+			err := app.saveContext(reqContext)
+			if err != nil {
+				s.log.Error(err)
+				return
+			}
+			resContext := &chat_context.ChatMessage{
+				ID:      resultID,
+				PID:     reqContext.ID,
+				Message: resultMessage,
+				Tokens:  resultTokens,
+			}
+			err = app.saveContext(resContext)
+			if err != nil {
+				s.log.Error(err)
+				return
+			}
+		}()
+	}
+	if cnf.Mysql.Enabled {
+		go func() {
+			s.busMetrics.QuestionsTotalCounter.Inc()
+			records := &data.ChatRecord{
+				UserMsg:         in.Message,
+				UserMsgTokens:   currTokens,
+				UserMsgKeywords: keywords,
+				AIMsg:           completionContent,
+				AIMsgTokens:     resultTokens,
+				ReqTokens:       tokens,
+				CreateAt:        time.Now().Unix(),
+			}
+			err := s.data.Add(records)
+			if err != nil {
+				s.log.Error(err)
+				return
+			}
+			//保存到向量数据库
+			if len(keywords) > 0 && cnf.VectorDB.Enabled {
+				list := []*vector_data.ChatRecord{
+					{
+						ID: strconv.FormatInt(records.ID, 10),
+						KVs: map[string]string{
+							"keywords": strings.Join(keywords, ","),
+						},
+					},
+				}
+				err = s.vectorData.UpsertData(context.Background(), list)
+				if err != nil {
+					s.log.Error(err)
+					return
+				}
+			}
+		}()
+	}
 	return nil
 }
