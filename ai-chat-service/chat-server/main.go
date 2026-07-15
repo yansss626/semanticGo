@@ -59,9 +59,7 @@ func main() {
 		mysql.InitMysql(cnf)
 	}
 	// 初始化redis
-	if cnf.Redis.Enabled {
-		redis.InitRedisPool(cnf)
-	}
+	redis.InitRedisPool(cnf)
 	// 初始化向量数据库
 	if cnf.VectorDB.Enabled {
 		vector.InitDB(cnf)

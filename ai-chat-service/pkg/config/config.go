@@ -38,10 +38,9 @@ type Config struct {
 		Enabled     bool
 	}
 	Redis struct {
-		Host    string
-		Port    int
-		Pwd     string `mapstructure:"pwd"`
-		Enabled bool
+		Host string
+		Port int
+		Pwd  string `mapstructure:"pwd"`
 	}
 	Kvstore struct {
 		Host    string

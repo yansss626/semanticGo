@@ -43,11 +43,8 @@ func NewChatService(data data.IChatRecordsData, vectorData vector_data.IChatReco
 func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompletionRequest) (*proto.ChatCompletionResponse, error) {
 	cnf := config.GetConfig()
 
-	var redisContextCache chat_context.ContextCache
-	if cnf.Redis.Enabled {
-		redisContextCache = chat_context.NewRedisCache()
-		defer redisContextCache.Close()
-	}
+	redisContextCache := chat_context.NewRedisCache()
+	defer redisContextCache.Close()
 
 	app := s.newApp(in, redisContextCache)
 	//敏感词过滤
@@ -112,32 +109,30 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 		}()
 	}
 	// redis 保存上下文
-	if cnf.Redis.Enabled {
-		go func() {
-			reqContext := &chat_context.ChatMessage{
-				ID:      in.Id,
-				PID:     in.Pid,
-				Message: currMessage,
-				Tokens:  currTokens,
-			}
-			err := app.saveContext(reqContext)
-			if err != nil {
-				s.log.Error(err)
-				return
-			}
-			resContext := &chat_context.ChatMessage{
-				ID:      resp.ID,
-				PID:     reqContext.ID,
-				Message: resp.Choices[0].Message,
-				Tokens:  resp.Usage.CompletionTokens,
-			}
-			err = app.saveContext(resContext)
-			if err != nil {
-				s.log.Error(err)
-				return
-			}
-		}()
-	}
+	go func() {
+		reqContext := &chat_context.ChatMessage{
+			ID:      in.Id,
+			PID:     in.Pid,
+			Message: currMessage,
+			Tokens:  currTokens,
+		}
+		err := app.saveContext(reqContext)
+		if err != nil {
+			s.log.Error(err)
+			return
+		}
+		resContext := &chat_context.ChatMessage{
+			ID:      resp.ID,
+			PID:     reqContext.ID,
+			Message: resp.Choices[0].Message,
+			Tokens:  resp.Usage.CompletionTokens,
+		}
+		err = app.saveContext(resContext)
+		if err != nil {
+			s.log.Error(err)
+			return
+		}
+	}()
 	// mysql, vectorDB 保存对话记录
 	if cnf.Mysql.Enabled {
 		go func() {
@@ -178,11 +173,8 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stream proto.Chat_ChatCompletionStreamServer) error {
 	cnf := config.GetConfig()
 
-	var redisContextCache chat_context.ContextCache
-	if cnf.Redis.Enabled {
-		redisContextCache = chat_context.NewRedisCache()
-		defer redisContextCache.Close()
-	}
+	redisContextCache := chat_context.NewRedisCache()
+	defer redisContextCache.Close()
 
 	app := s.newApp(in, redisContextCache)
 	//敏感词过滤
@@ -330,32 +322,30 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 			}
 		}()
 	}
-	if cnf.Redis.Enabled {
-		go func() {
-			reqContext := &chat_context.ChatMessage{
-				ID:      in.Id,
-				PID:     in.Pid,
-				Message: currMessage,
-				Tokens:  currTokens,
-			}
-			err := app.saveContext(reqContext)
-			if err != nil {
-				s.log.Error(err)
-				return
-			}
-			resContext := &chat_context.ChatMessage{
-				ID:      resultID,
-				PID:     reqContext.ID,
-				Message: resultMessage,
-				Tokens:  resultTokens,
-			}
-			err = app.saveContext(resContext)
-			if err != nil {
-				s.log.Error(err)
-				return
-			}
-		}()
-	}
+	go func() {
+		reqContext := &chat_context.ChatMessage{
+			ID:      in.Id,
+			PID:     in.Pid,
+			Message: currMessage,
+			Tokens:  currTokens,
+		}
+		err := app.saveContext(reqContext)
+		if err != nil {
+			s.log.Error(err)
+			return
+		}
+		resContext := &chat_context.ChatMessage{
+			ID:      resultID,
+			PID:     reqContext.ID,
+			Message: resultMessage,
+			Tokens:  resultTokens,
+		}
+		err = app.saveContext(resContext)
+		if err != nil {
+			s.log.Error(err)
+			return
+		}
+	}()
 	if cnf.Mysql.Enabled {
 		go func() {
 			s.busMetrics.QuestionsTotalCounter.Inc()

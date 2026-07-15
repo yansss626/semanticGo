@@ -40,8 +40,6 @@ redis:
   host: "192.168.184.138"
   port: 6379
   pwd: ""
-  # 选择是否开启 redis 保存上下文功能
-  enabled: true 
 kvstore:
   host: "192.168.184.138"
   port: 2000
