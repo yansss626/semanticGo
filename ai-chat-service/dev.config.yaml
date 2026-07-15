@@ -39,10 +39,18 @@ chat:
 redis:
   host: "192.168.184.138"
   port: 6379
-  pwd: ""
+  pwd: "123456"
 kvstore:
   host: "192.168.184.138"
   port: 2000
+  # 连接池中拥有的最小连接数
+  initial_cap: 1
+  # 最大空闲连接
+  max_idle: 4
+  # 最大并发存活连接数
+  max_cap: 5
+  # 连接最大空闲时间，超过该事件则将失效
+  idle_timeout: 15
   # 选择是否开启 kvstore
   enabled: true
 mysql:
