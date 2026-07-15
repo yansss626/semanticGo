@@ -6,10 +6,10 @@ http:
 chat:
   # openai key
   api_keys:
-  - "ey84prEhw5u43780yjr3dDngKiejh7ksSdkFs8nth0y5nr9i2940"
-  #- "sk-FyB36a3v1Se3HrovF683Bb1bBa8b430287D688Ea3fD58d40"
+  #- "ey84prEhw5u43780yjr3dDngKiejh7ksSdkFs8nth0y5nr9i2940"
+  - "sk-YWcAzjgBrrDL10T9Fa3e46B112A545EfBaC3B936F66eAcEe"
   # 接口地址
-  base_url: "http://localhost:8083/v1"
+  base_url: "https://aihubmix.com/v1"
 log:
   # panic,fatal,error,warn,warning,info,debug,trace
   level: "info"
