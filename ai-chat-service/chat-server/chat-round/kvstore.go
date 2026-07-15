@@ -1,6 +1,7 @@
 package kvstore
 
 import (
+	"ai-chat-service/pkg/config"
 	pkvstore "ai-chat-service/pkg/db/kvstore"
 	"fmt"
 	"net"
@@ -19,7 +20,7 @@ type roundCache struct {
 func NewKvstoreCache() (RoundCache, error) {
 	p := pkvstore.GetPool()
 	if p == nil || p.KvsPool == nil {
-		return nil, fmt.Errorf("kvstore pool is not initialized")
+		return nil, pkvstore.InitKvstorePool(config.GetConfig())
 	}
 
 	c, err := p.KvsPool.Get()

@@ -20,7 +20,7 @@ type KvstorePool struct {
 
 var kvsPool *KvstorePool
 
-func InitKvstorePool(cnf *config.Config) {
+func InitKvstorePool(cnf *config.Config) error {
 	addr := fmt.Sprintf("%s:%d", cnf.Kvstore.Host, cnf.Kvstore.Port)
 
 	factory := func() (interface{}, error) { return net.Dial("tcp", addr) }
@@ -38,12 +38,13 @@ func InitKvstorePool(cnf *config.Config) {
 	pool, err := pool.NewChannelPool(poolConfig)
 	if err != nil {
 		log.Error(err)
+		return err
 	}
 
 	kvsPool = &KvstorePool{
 		KvsPool: pool,
 	}
-
+	return nil
 }
 
 func GetPool() *KvstorePool {
