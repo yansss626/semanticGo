@@ -37,11 +37,11 @@ chat:
   # 上下文消息条数
   context_len: 4
 redis:
-  host: "192.168.239.161"
+  host: "192.168.184.138"
   port: 6379
-  pwd: "123456"
+  pwd: ""
   # 选择是否开启 redis 保存上下文功能
-  enabled: false 
+  enabled: true 
 kvstore:
   host: "192.168.184.138"
   port: 2000
