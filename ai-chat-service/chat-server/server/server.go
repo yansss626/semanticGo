@@ -282,6 +282,9 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 		if err == io.EOF {
 			break
 		}
+		if len(resp.Choices) == 0 {
+			continue
+		}
 		if resultID == "" {
 			resultID = resp.ID
 		}
