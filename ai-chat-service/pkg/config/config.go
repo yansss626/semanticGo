@@ -43,9 +43,13 @@ type Config struct {
 		Pwd  string `mapstructure:"pwd"`
 	}
 	Kvstore struct {
-		Host    string
-		Port    int
-		Enabled bool
+		Host        string
+		Port        int
+		Enabled     bool
+		InitialCap  int   `mapstructure:"initial_cap"`
+		MaxIdle     int   `mapstructure:"max_idle"`
+		MaxCap      int   `mapstructure:"max_cap"`
+		IdleTimeout int64 `mapstructure:"idle_timeout"`
 	}
 	DependOn struct {
 		Sensitive struct {

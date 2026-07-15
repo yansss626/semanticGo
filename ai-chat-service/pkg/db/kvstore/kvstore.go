@@ -28,12 +28,12 @@ func InitKvstorePool(cnf *config.Config) {
 	close := func(v interface{}) error { return v.(net.Conn).Close() }
 
 	poolConfig := &pool.Config{
-		InitialCap:  1,
-		MaxIdle:     4,
-		MaxCap:      5,
+		InitialCap:  cnf.Kvstore.InitialCap,
+		MaxIdle:     cnf.Kvstore.MaxIdle,
+		MaxCap:      cnf.Kvstore.MaxCap,
 		Factory:     factory,
 		Close:       close,
-		IdleTimeout: 15 * time.Second,
+		IdleTimeout: time.Duration(cnf.Kvstore.IdleTimeout) * time.Second,
 	}
 	pool, err := pool.NewChannelPool(poolConfig)
 	if err != nil {
@@ -125,7 +125,7 @@ func (c *Client) Get(key string) (string, error) {
 }
 
 func (c *Client) Set(key string, value string) error {
-	command := buildKvstoreCommand([]string{"SET", key, value})
+	command := buildKvstoreCommand([]string{"HSET", key, value})
 	if command == "" {
 		return nil
 	}
