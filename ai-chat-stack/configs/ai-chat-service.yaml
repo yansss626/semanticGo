@@ -49,8 +49,8 @@ kvstore:
   max_idle: 4
   # 最大并发存活连接数
   max_cap: 5
-  # 连接最大空闲时间，超过该事件则将失效
-  idle_timeout: 15
+  # 连接最大空闲时间（秒），超过该事件则将失效
+  idle_timeout: 6000
   # 选择是否开启 kvstore
   enabled: true 
 mysql:
