@@ -20,7 +20,10 @@ type roundCache struct {
 func NewKvstoreCache() (RoundCache, error) {
 	p := pkvstore.GetPool()
 	if p == nil || p.KvsPool == nil {
-		return nil, pkvstore.InitKvstorePool(config.GetConfig())
+		err := pkvstore.InitKvstorePool(config.GetConfig())
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	c, err := p.KvsPool.Get()

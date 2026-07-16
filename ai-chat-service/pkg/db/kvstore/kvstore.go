@@ -58,7 +58,7 @@ func writeFully(conn net.Conn, b []byte) error {
 	for totalWriten < length {
 		n, err := conn.Write(b[totalWriten:])
 		if err != nil {
-			return nil
+			return err
 		}
 
 		totalWriten += n
@@ -117,7 +117,7 @@ func (c *Client) Get(key string) (string, error) {
 	}
 
 	value, err := readFully(c.Conn)
-	if err != err {
+	if err != nil {
 		return "", err
 	}
 
@@ -136,7 +136,7 @@ func (c *Client) Set(key string, value string) error {
 		return err
 	}
 	_, err = readFully(c.Conn)
-	if err != err {
+	if err != nil {
 		return err
 	}
 
