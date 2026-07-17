@@ -12,7 +12,7 @@ chat:
   # openai 接口地址
   base_url: "http://192.168.184.138:8084/v1"
   # 使用的训练模型
-  model: "gpt-4o-mini"
+  model: "deepseek-v4-pro"
   # 单次请求的上下文总长度,包括：请求消息+响应消息
   max_tokens: 4096
   # 表示语言模型输出的随机性和创造性

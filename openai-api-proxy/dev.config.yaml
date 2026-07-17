@@ -6,10 +6,9 @@ http:
 chat:
   # openai key
   api_keys:
-  #- "ey84prEhw5u43780yjr3dDngKiejh7ksSdkFs8nth0y5nr9i2940"
-  - "sk-YWcAzjgBrrDL10T9Fa3e46B112A545EfBaC3B936F66eAcEe"
+  - "sk-ef9c4de0a2c747ec889ee609749bd92b"
   # 接口地址
-  base_url: "https://aihubmix.com/v1"
+  base_url: "https://api.deepseek.com/v1"
 log:
   # panic,fatal,error,warn,warning,info,debug,trace
   level: "info"

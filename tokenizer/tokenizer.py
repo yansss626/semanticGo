@@ -5,7 +5,8 @@ import tiktoken
 
 encoding_cache = {}
 
-support_models = set(["gpt-4o-mini",
+support_models = set(["deepseek-v4-pro",
+                      "gpt-4o-mini",
                       "gpt-5.4-mini",
                       "gpt-3.5-turbo",
                       "gpt-3.5-turbo-16k",
