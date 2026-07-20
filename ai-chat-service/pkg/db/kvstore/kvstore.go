@@ -33,7 +33,7 @@ func InitKvstorePool(cnf *config.Config) error {
 		MaxCap:      cnf.Kvstore.MaxCap,
 		Factory:     factory,
 		Close:       close,
-		IdleTimeout: time.Duration(cnf.Kvstore.IdleTimeout) * time.Second,
+		IdleTimeout: time.Duration(cnf.Kvstore.IdleTimeout) * time.Minute,
 	}
 	pool, err := pool.NewChannelPool(poolConfig)
 	if err != nil {
