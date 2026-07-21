@@ -75,6 +75,12 @@ type Config struct {
 		IdleConnTimeout    int
 		Enabled            bool
 	}
+	Embedding struct {
+		ApiKey           string `mapstructure:"api_key"`
+		BaseUrl          string `mapstructure:"base_url"`
+		Model            string `mapstructure:"model"`
+		vectorDimensions int    `mapstructure:"vector_dimensions"`
+	}
 }
 
 var conf *Config

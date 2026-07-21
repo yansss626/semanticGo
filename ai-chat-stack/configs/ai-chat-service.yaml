@@ -87,3 +87,8 @@ vectorDB:
   idleConnTimeout: 60
   # 选择是否开启 vectorDB
   enabled: false
+Embedding: # Embedding 模型，将问题文本转化为数字向量
+  api_key: "sk-ws-H.EHMRRDL.G7qC.MEYCIQDxxspnatsngz5745n4-PHFyd-RNN9qkEtP0qqgyN7q-AIhALORmoklQ_D169zkMFO55Ri-yiXor2OmtC616Cnpp6Ar"
+  base_url: "https://ws-7wl00bp88ie0ya61.cn-beijing.maas.aliyuncs.com/compatible-mode/v1" 
+  model: "qwen3.7-text-embedding"
+  vector_dimensions: 256
