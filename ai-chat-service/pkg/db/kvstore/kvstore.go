@@ -3,6 +3,7 @@ package kvstore
 import (
 	"ai-chat-service/pkg/config"
 	"ai-chat-service/pkg/log"
+	"bufio"
 	"fmt"
 	"net"
 	"time"
@@ -11,7 +12,8 @@ import (
 )
 
 type Client struct {
-	Conn net.Conn
+	Conn   net.Conn
+	reader *bufio.Reader
 }
 
 type KvstorePool struct {
@@ -19,6 +21,10 @@ type KvstorePool struct {
 }
 
 var kvsPool *KvstorePool
+
+func GetPool() *KvstorePool {
+	return kvsPool
+}
 
 func InitKvstorePool(cnf *config.Config) error {
 	addr := fmt.Sprintf("%s:%d", cnf.Kvstore.Host, cnf.Kvstore.Port)
@@ -47,98 +53,89 @@ func InitKvstorePool(cnf *config.Config) error {
 	return nil
 }
 
-func GetPool() *KvstorePool {
-	return kvsPool
-}
-
-func writeFully(conn net.Conn, b []byte) error {
-	totalWriten := 0
-	length := len(b)
-
-	for totalWriten < length {
-		n, err := conn.Write(b[totalWriten:])
-		if err != nil {
-			return err
-		}
-
-		totalWriten += n
+func NewClient(conn net.Conn) *Client {
+	return &Client{
+		Conn:   conn,
+		reader: bufio.NewReader(conn),
 	}
-
-	return nil
-}
-
-func buildKvstoreCommand(args []string) string {
-	count := len(args)
-	if count == 0 {
-		return ""
-	}
-
-	var command string
-
-	// build kvsp body
-	for i := 0; i < count; i++ {
-		argLen := len(args[i])
-		command += fmt.Sprintf("^%d&%s", argLen, args[i])
-
-		if i == count-1 {
-			command += "\r\n"
-		}
-	}
-
-	bodyLen := len(command)
-
-	// build kvsp head
-	command = fmt.Sprintf("#%d\r\n", bodyLen) + command
-
-	return command
-
-}
-
-func readFully(conn net.Conn) (string, error) {
-	buffer := make([]byte, 1024)
-	_, err := conn.Read(buffer)
-	if err != nil {
-		return "", err
-	}
-
-	return string(buffer), nil
 }
 
 func (c *Client) Get(key string) (string, error) {
 
-	command := buildKvstoreCommand([]string{"HGET", key})
-	if command == "" {
+	err := c.writeRequest([]string{"HGET", key})
+	if err != nil {
+		return "", err
+	}
+
+	Reply, err := c.readReply()
+	if err != nil {
+		return "", err
+	}
+
+	if Reply.Type != StringReply {
+		if Reply.Type == ErrorReply {
+			return "", fmt.Errorf("%s", Reply.Bytes)
+		}
+		return "", fmt.Errorf("reply type mistach: expected string, got %c", Reply.Type)
+	}
+
+	if Reply.IsNull {
 		return "", nil
+
 	}
 
-	err := writeFully(c.Conn, []byte(command))
+	return string(Reply.Bytes), nil
+}
+
+func (c *Client) Set(key, value string) (bool, error) {
+
+	err := c.writeRequest([]string{"HSET", key, value})
 	if err != nil {
-		return "", err
+		return false, err
 	}
 
-	value, err := readFully(c.Conn)
+	Reply, err := c.readReply()
 	if err != nil {
-		return "", err
+		return false, err
 	}
 
-	return value, nil
+	if Reply.Type != StatusReply {
+		if Reply.Type == ErrorReply {
+			return false, fmt.Errorf("%s", Reply.Bytes)
+		}
+
+		if !Reply.IsNull {
+			return false, nil
+		}
+		return false, fmt.Errorf("reply type mistach: expected string, got %c", Reply.Type)
+	}
+
+	return true, nil
 
 }
 
-func (c *Client) Set(key string, value string) error {
-	command := buildKvstoreCommand([]string{"HSET", key, value})
-	if command == "" {
-		return nil
+func (c *Client) Mod(key, value string) (bool, error) {
+	err := c.writeRequest([]string{"HMOD", key, value})
+	if err != nil {
+		return false, err
 	}
 
-	err := writeFully(c.Conn, []byte(command))
+	Reply, err := c.readReply()
 	if err != nil {
-		return err
-	}
-	_, err = readFully(c.Conn)
-	if err != nil {
-		return err
+		return false, err
 	}
 
-	return nil
+	if Reply.Type != StatusReply {
+		if Reply.Type == ErrorReply {
+			return false, fmt.Errorf("%s", Reply.Bytes)
+		}
+
+		if Reply.Type == IntegerReply {
+			return false, nil
+		}
+		return false, fmt.Errorf("reply type mistach: expected string, got %c", Reply.Type)
+	}
+
+	return true, nil
+
 }

@@ -295,14 +295,14 @@ func (a *app) sensitive(in *proto.ChatCompletionRequest) (ok bool, msg string, e
 }
 
 func (a *app) saveRound(question string, answer string) error {
-	Client, err := chat_round.NewKvstoreCache()
+	client, err := chat_round.NewKvstoreCache()
 	if err != nil {
 		return err
 	}
-	err = Client.Set(question, answer)
+	_, err = client.Set(question, answer)
 	if err != nil {
 		return err
 	}
-	Client.Close()
+	client.Close()
 	return nil
 }

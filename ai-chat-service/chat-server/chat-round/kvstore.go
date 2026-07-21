@@ -9,7 +9,8 @@ import (
 
 type RoundCache interface {
 	Get(string) (string, error)
-	Set(string, string) error
+	Set(string, string) (bool, error)
+	Mod(string, string) (bool, error)
 	Close()
 }
 
@@ -38,20 +39,18 @@ func NewKvstoreCache() (RoundCache, error) {
 	}
 
 	return &roundCache{
-		kvstoreClient: &pkvstore.Client{
-			Conn: conn,
-		},
+		pkvstore.NewClient(conn),
 	}, nil
 }
 
-func (c *roundCache) Set(key string, value string) error {
-	err := c.kvstoreClient.Set(key, value)
+func (c *roundCache) Set(key, value string) (bool, error) {
+	isSuccess, err := c.kvstoreClient.Set(key, value)
 	if err != nil {
 		p := pkvstore.GetPool()
 		_ = p.KvsPool.Close(c.kvstoreClient.Conn)
-		return err
+		return false, err
 	}
-	return nil
+	return isSuccess, nil
 }
 
 func (c *roundCache) Get(key string) (string, error) {
@@ -62,6 +61,16 @@ func (c *roundCache) Get(key string) (string, error) {
 		return "", err
 	}
 	return value, nil
+}
+
+func (c *roundCache) Mod(key, value string) (bool, error) {
+	isSuccess, err := c.kvstoreClient.Mod(key, value)
+	if err != nil {
+		p := pkvstore.GetPool()
+		_ = p.KvsPool.Close(c.kvstoreClient.Conn)
+		return false, err
+	}
+	return isSuccess, nil
 }
 
 func (c *roundCache) Close() {
