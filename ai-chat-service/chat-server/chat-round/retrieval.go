@@ -69,7 +69,7 @@ func (a *algorithmSimhash) GetRounds(round *RoundMessage) ([]*ChatRound, error) 
 	return values, nil
 }
 
-func (a *algorithmSimhash) SimilarTextSearch(rounds []*ChatRound, round *RoundMessage) (string, error) {
+func (a *algorithmSimhash) SimilarTextSearch(rounds []*ChatRound, round *RoundMessage) (bool, string, error) {
 
 	// match
 	var messages []*RoundMessage
@@ -80,8 +80,18 @@ func (a *algorithmSimhash) SimilarTextSearch(rounds []*ChatRound, round *RoundMe
 		}
 
 		for j := 0; j < len(rounds[i].Messages); j++ {
-			if a.encoder.calculateHammingDistanceFor64bits(round.Simhash, rounds[i].Messages[j].Simhash) <= a.distance {
-				messages = append(messages, rounds[i].Messages[j])
+			msg := rounds[i].Messages[j]
+			if msg.Question == round.Question {
+				answer, err := a.cache.Get(msg.AnswerID)
+				if err != nil {
+					return true, "", err
+				}
+				round.AnswerID = msg.AnswerID
+				return true, answer, nil
+
+			}
+			if a.encoder.calculateHammingDistanceFor64bits(round.Simhash, msg.Simhash) <= a.distance {
+				messages = append(messages, msg)
 			}
 		}
 	}
@@ -99,16 +109,16 @@ func (a *algorithmSimhash) SimilarTextSearch(rounds []*ChatRound, round *RoundMe
 	}
 
 	if index < 0 {
-		return "", nil
+		return false, "", nil
 	}
 
 	answer, err := a.cache.Get(messages[index].AnswerID)
 	if err != nil {
-		return "", err
+		return false, "", err
 	}
 	round.AnswerID = messages[index].AnswerID
 
-	return answer, nil
+	return false, answer, nil
 }
 
 func (a *algorithmSimhash) InsertRound(rounds []*ChatRound, round *RoundMessage) error {

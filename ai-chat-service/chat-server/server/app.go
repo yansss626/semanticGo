@@ -339,16 +339,16 @@ func (a *app) textRetrieval(text string, vector []float32) (*chat_round.Retrieva
 	if err != nil {
 		return nil, err
 	}
-	str, err := object.SimilarTextSearch(rounds, round)
+	isSameText, str, err := object.SimilarTextSearch(rounds, round)
 	if err != nil {
 		return nil, err
 	}
-	cacheClient.Close()
 
 	return &chat_round.RetrievalResult{
-		Round:  round,
-		Rounds: rounds,
-		Answer: str,
+		Round:      round,
+		Rounds:     rounds,
+		Answer:     str,
+		IsSameText: isSameText,
 	}, nil
 }
 
@@ -364,7 +364,6 @@ func (a *app) textUpdate(rounds []*chat_round.ChatRound, round *chat_round.Round
 	if err != nil {
 		return err
 	}
-	cacheClient.Close()
 	return nil
 }
 

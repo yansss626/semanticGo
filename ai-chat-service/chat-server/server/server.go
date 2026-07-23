@@ -97,13 +97,15 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 
 			} else {
 				if retrievalRes.Answer != "" {
-					go func() {
-						err := app.textUpdate(retrievalRes.Rounds, retrievalRes.Round)
-						if err != nil {
-							s.log.Error(err)
-							return
-						}
-					}()
+					if !retrievalRes.IsSameText {
+						go func() {
+							err := app.textUpdate(retrievalRes.Rounds, retrievalRes.Round)
+							if err != nil {
+								s.log.Error(err)
+								return
+							}
+						}()
+					}
 					resp := app.buildChatCompletionResponse(retrievalRes.Answer)
 					return resp, nil
 				}
@@ -282,13 +284,15 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 
 			} else {
 				if retrievalRes.Answer != "" {
-					go func() {
-						err := app.textUpdate(retrievalRes.Rounds, retrievalRes.Round)
-						if err != nil {
-							s.log.Error(err)
-							return
-						}
-					}()
+					if !retrievalRes.IsSameText {
+						go func() {
+							err := app.textUpdate(retrievalRes.Rounds, retrievalRes.Round)
+							if err != nil {
+								s.log.Error(err)
+								return
+							}
+						}()
+					}
 					err = app.replyStream(retrievalRes.Answer, stream)
 					if err != nil {
 						s.log.Error(err)
