@@ -1,4 +1,4 @@
-package kvstore
+package chat_round
 
 import (
 	"ai-chat-service/pkg/config"
@@ -16,6 +16,7 @@ type RoundCache interface {
 
 type roundCache struct {
 	kvstoreClient *pkvstore.Client
+	invalid       bool
 }
 
 func NewKvstoreCache() (RoundCache, error) {
@@ -25,6 +26,7 @@ func NewKvstoreCache() (RoundCache, error) {
 		if err != nil {
 			return nil, err
 		}
+		p = pkvstore.GetPool()
 	}
 
 	c, err := p.KvsPool.Get()
@@ -39,15 +41,24 @@ func NewKvstoreCache() (RoundCache, error) {
 	}
 
 	return &roundCache{
-		pkvstore.NewClient(conn),
+		kvstoreClient: pkvstore.NewClient(conn),
+		invalid:       false,
 	}, nil
+}
+
+func (c *roundCache) invalidate() {
+	if c.invalid {
+		return
+	}
+	p := pkvstore.GetPool()
+	_ = p.KvsPool.Close(c.kvstoreClient.Conn)
+	c.invalid = true
 }
 
 func (c *roundCache) Set(key, value string) (bool, error) {
 	isSuccess, err := c.kvstoreClient.Set(key, value)
 	if err != nil {
-		p := pkvstore.GetPool()
-		_ = p.KvsPool.Close(c.kvstoreClient.Conn)
+		c.invalidate()
 		return false, err
 	}
 	return isSuccess, nil
@@ -56,8 +67,7 @@ func (c *roundCache) Set(key, value string) (bool, error) {
 func (c *roundCache) Get(key string) (string, error) {
 	value, err := c.kvstoreClient.Get(key)
 	if err != nil {
-		p := pkvstore.GetPool()
-		_ = p.KvsPool.Close(c.kvstoreClient.Conn)
+		c.invalidate()
 		return "", err
 	}
 	return value, nil
@@ -74,6 +84,9 @@ func (c *roundCache) Mod(key, value string) (bool, error) {
 }
 
 func (c *roundCache) Close() {
+	if c.invalid {
+		return
+	}
 	p := pkvstore.GetPool()
 	_ = p.KvsPool.Put(c.kvstoreClient.Conn)
 }
