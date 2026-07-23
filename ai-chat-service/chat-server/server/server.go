@@ -2,6 +2,7 @@ package server
 
 import (
 	chat_context "ai-chat-service/chat-server/chat-context"
+	chat_round "ai-chat-service/chat-server/chat-round"
 	"ai-chat-service/chat-server/data"
 	metrics_bus "ai-chat-service/chat-server/metrics-bus"
 	vector_data "ai-chat-service/chat-server/vector-data"
@@ -80,6 +81,36 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 		}
 	}
 
+	// 相似文本检索
+	var retrievalRes *chat_round.RetrievalResult
+	if cnf.Kvstore.Enabled {
+		embeddingClient := app.getEmbeddingModel()
+		embeddingReq := app.buildEmbeddingRequest(in.Message)
+		embeddingResp, err := embeddingClient.CreateEmbeddings(context.Background(), embeddingReq)
+		if err != nil {
+			s.log.Error(err)
+		} else {
+			textVector := embeddingResp.Data[0].Embedding
+			retrievalRes, err = app.textRetrieval(in.Message, textVector)
+			if err != nil {
+				s.log.Error(err)
+
+			} else {
+				if retrievalRes.Answer != "" {
+					go func() {
+						err := app.textUpdate(retrievalRes.Rounds, retrievalRes.Round)
+						if err != nil {
+							s.log.Error(err)
+							return
+						}
+					}()
+					resp := app.buildChatCompletionResponse(retrievalRes.Answer)
+					return resp, nil
+				}
+			}
+		}
+	}
+
 	client := app.getOpenaiClient()
 	req, tokens, currTokens, currMessage, err := app.buildChatCompletionRequest(in, false)
 	resp, err := client.CreateChatCompletion(ctx, req)
@@ -93,18 +124,31 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 		s.log.Error(err)
 		return nil, err
 	}
-	err = jsonpb.UnmarshalString(string(bytes), res)
+	// 允许 jsonpb 忽略未知字段
+	unmarshaler := jsonpb.Unmarshaler{
+		AllowUnknownFields: true,
+	}
+	err = unmarshaler.Unmarshal(strings.NewReader(string(bytes)), res)
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
 	}
-	// kvstore 保存每次对话的问题和答案
+	// kvstore
 	if cnf.Kvstore.Enabled {
 		go func() {
-			err := app.saveRound(currMessage.Content, resp.Choices[0].Message.Content)
+			answerID := uuid.New().String()
+			err := app.saveRound(answerID, resp.Choices[0].Message.Content)
 			if err != nil {
 				s.log.Error(err)
 				return
+			}
+			if retrievalRes != nil && retrievalRes.Round != nil {
+				retrievalRes.Round.AnswerID = answerID
+				err = app.textUpdate(retrievalRes.Rounds, retrievalRes.Round)
+				if err != nil {
+					s.log.Error(err)
+					return
+				}
 			}
 		}()
 	}
@@ -186,23 +230,7 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 	}
 	if !ok {
 		s.busMetrics.SensitiveQuestionsTotalCounter.Inc()
-		resId := uuid.New().String()
-		startRes := app.buildChatCompletionStreamResponse(resId, "", "")
-		endRes := app.buildChatCompletionStreamResponse(resId, "", "stop")
-		err = stream.Send(startRes)
-		if err != nil {
-			s.log.Error(err)
-			return err
-		}
-		resList := app.buildChatCompletionStreamResponseList(resId, msg)
-		for _, res := range resList {
-			err = stream.Send(res)
-			if err != nil {
-				s.log.Error(err)
-				return err
-			}
-		}
-		err = stream.Send(endRes)
+		err = app.replyStream(msg, stream)
 		if err != nil {
 			s.log.Error(err)
 			return err
@@ -227,23 +255,41 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 				if err != nil {
 					s.log.Error(err)
 				} else {
-					resId := uuid.New().String()
-					startRes := app.buildChatCompletionStreamResponse(resId, "", "")
-					endRes := app.buildChatCompletionStreamResponse(resId, "", "stop")
-					err = stream.Send(startRes)
+					err = app.replyStream(record.AIMsg, stream)
 					if err != nil {
 						s.log.Error(err)
 						return err
 					}
-					resList := app.buildChatCompletionStreamResponseList(resId, record.AIMsg)
-					for _, res := range resList {
-						err = stream.Send(res)
+					return nil
+				}
+			}
+		}
+	}
+
+	// 相似文本检索
+	var retrievalRes *chat_round.RetrievalResult
+	if cnf.Kvstore.Enabled {
+		embeddingClient := app.getEmbeddingModel()
+		embeddingReq := app.buildEmbeddingRequest(in.Message)
+		embeddingResp, err := embeddingClient.CreateEmbeddings(context.Background(), embeddingReq)
+		if err != nil {
+			s.log.Error(err)
+		} else {
+			textVector := embeddingResp.Data[0].Embedding
+			retrievalRes, err = app.textRetrieval(in.Message, textVector)
+			if err != nil {
+				s.log.Error(err)
+
+			} else {
+				if retrievalRes.Answer != "" {
+					go func() {
+						err := app.textUpdate(retrievalRes.Rounds, retrievalRes.Round)
 						if err != nil {
 							s.log.Error(err)
-							return err
+							return
 						}
-					}
-					err = stream.Send(endRes)
+					}()
+					err = app.replyStream(retrievalRes.Answer, stream)
 					if err != nil {
 						s.log.Error(err)
 						return err
@@ -287,7 +333,11 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 			s.log.Error(err)
 			return err
 		}
-		err = jsonpb.UnmarshalString(string(bytes), res)
+		// 允许 jsonpb 忽略未知字段
+		unmarshaler := jsonpb.Unmarshaler{
+			AllowUnknownFields: true,
+		}
+		err = unmarshaler.Unmarshal(strings.NewReader(string(bytes)), res)
 		if err != nil {
 			s.log.Error(err)
 			return err
@@ -315,10 +365,19 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 
 	if cnf.Kvstore.Enabled {
 		go func() {
-			err := app.saveRound(currMessage.Content, resultMessage.Content)
+			answerID := uuid.New().String()
+			err := app.saveRound(answerID, resultMessage.Content)
 			if err != nil {
 				s.log.Error(err)
 				return
+			}
+			if retrievalRes != nil && retrievalRes.Round != nil {
+				retrievalRes.Round.AnswerID = answerID
+				err = app.textUpdate(retrievalRes.Rounds, retrievalRes.Round)
+				if err != nil {
+					s.log.Error(err)
+					return
+				}
 			}
 		}()
 	}

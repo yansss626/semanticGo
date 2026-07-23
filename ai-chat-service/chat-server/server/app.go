@@ -21,6 +21,7 @@ import (
 const ChatPrimedTokens = 2
 
 type openaiConf struct {
+	// LLM model
 	ApiKey            string
 	BaseUrl           string
 	Model             string
@@ -33,6 +34,11 @@ type openaiConf struct {
 	ContextTTL        int
 	ContextLen        int
 	MinResponseTokens int
+	// Embedding Model
+	EmbeddingApiKey           string
+	EmbeddingBaseUrl          string
+	EmbeddingVectorDimensions int
+	EmbeddingModel            string
 }
 type app struct {
 	openaiConf *openaiConf
@@ -55,6 +61,11 @@ func (s *chatService) newApp(in *proto.ChatCompletionRequest, contextCache chat_
 		ContextTTL:        s.config.Chat.ContextTTL,
 		ContextLen:        s.config.Chat.ContextLen,
 		MinResponseTokens: s.config.Chat.MinResponseTokens,
+
+		EmbeddingApiKey:           s.config.Embedding.ApiKey,
+		EmbeddingBaseUrl:          s.config.Embedding.BaseUrl,
+		EmbeddingVectorDimensions: s.config.Embedding.VectorDimensions,
+		EmbeddingModel:            s.config.Embedding.Model,
 	}
 	if in.ChatParam != nil {
 		if in.ChatParam.Model != "" {
@@ -294,15 +305,103 @@ func (a *app) sensitive(in *proto.ChatCompletionRequest) (ok bool, msg string, e
 	return
 }
 
-func (a *app) saveRound(question string, answer string) error {
+func (a *app) saveRound(key string, value string) error {
 	client, err := chat_round.NewKvstoreCache()
 	if err != nil {
 		return err
 	}
-	_, err = client.Set(question, answer)
+	defer client.Close()
+
+	_, err = client.Set(key, value)
 	if err != nil {
 		return err
 	}
-	client.Close()
+
+	return nil
+}
+
+func (a *app) textRetrieval(text string, vector []float32) (*chat_round.RetrievalResult, error) {
+	cacheClient, err := chat_round.NewKvstoreCache()
+	if err != nil {
+		return nil, err
+	}
+	defer cacheClient.Close()
+
+	object := chat_round.GetRetrievalObject(cacheClient)
+
+	round := &chat_round.RoundMessage{
+		Question:        text,
+		EmbeddingVector: vector,
+		Simhash:         object.BuildIndex(vector),
+	}
+
+	rounds, err := object.GetRounds(round)
+	if err != nil {
+		return nil, err
+	}
+	str, err := object.SimilarTextSearch(rounds, round)
+	if err != nil {
+		return nil, err
+	}
+	cacheClient.Close()
+
+	return &chat_round.RetrievalResult{
+		Round:  round,
+		Rounds: rounds,
+		Answer: str,
+	}, nil
+}
+
+func (a *app) textUpdate(rounds []*chat_round.ChatRound, round *chat_round.RoundMessage) error {
+	cacheClient, err := chat_round.NewKvstoreCache()
+	if err != nil {
+		return err
+	}
+	defer cacheClient.Close()
+
+	object := chat_round.GetRetrievalObject(cacheClient)
+	err = object.InsertRound(rounds, round)
+	if err != nil {
+		return err
+	}
+	cacheClient.Close()
+	return nil
+}
+
+func (a *app) getEmbeddingModel() *openai.Client {
+	accessToken := a.openaiConf.EmbeddingApiKey
+	config := openai.DefaultConfig(accessToken)
+	config.BaseURL = a.openaiConf.EmbeddingBaseUrl
+	client := openai.NewClientWithConfig(config)
+	return client
+}
+
+func (a *app) buildEmbeddingRequest(text string) *openai.EmbeddingRequest {
+	return &openai.EmbeddingRequest{
+		Input:      []string{text},
+		Model:      openai.EmbeddingModel(a.openaiConf.EmbeddingModel),
+		Dimensions: a.openaiConf.EmbeddingVectorDimensions,
+	}
+}
+
+func (a *app) replyStream(message string, stream proto.Chat_ChatCompletionStreamServer) error {
+	resId := uuid.New().String()
+	startRes := a.buildChatCompletionStreamResponse(resId, "", "")
+	endRes := a.buildChatCompletionStreamResponse(resId, "", "stop")
+	err := stream.Send(startRes)
+	if err != nil {
+		return err
+	}
+	resList := a.buildChatCompletionStreamResponseList(resId, message)
+	for _, res := range resList {
+		err = stream.Send(res)
+		if err != nil {
+			return err
+		}
+	}
+	err = stream.Send(endRes)
+	if err != nil {
+		return err
+	}
 	return nil
 }

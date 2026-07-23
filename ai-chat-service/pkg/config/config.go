@@ -76,10 +76,12 @@ type Config struct {
 		Enabled            bool
 	}
 	Embedding struct {
-		ApiKey           string `mapstructure:"api_key"`
-		BaseUrl          string `mapstructure:"base_url"`
-		Model            string `mapstructure:"model"`
-		vectorDimensions int    `mapstructure:"vector_dimensions"`
+		ApiKey                    string  `mapstructure:"api_key"`
+		BaseUrl                   string  `mapstructure:"base_url"`
+		Model                     string  `mapstructure:"model"`
+		VectorDimensions          int     `mapstructure:"vector_dimensions"`
+		CosineSimilarityThreshold float64 `mapstructure:"cosine_similarity_threshold"`
+		Distance                  int
 	}
 }
 
