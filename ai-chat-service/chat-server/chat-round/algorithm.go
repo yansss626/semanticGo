@@ -31,6 +31,9 @@ func generatehyperPlanefor64bits(vectorDimensions int) [][]float64 {
 }
 
 func generatemasksFor16bits(flipcount int) []uint16 {
+	if flipcount <= 0 || flipcount > 4 {
+		return nil
+	}
 
 	var masks []uint16
 	for i := 0; i < 1<<16; i++ {

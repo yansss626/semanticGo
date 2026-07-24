@@ -53,11 +53,14 @@ func (a *algorithmSimhash) getCandidateRounds(round *RoundMessage) ([]*ChatRound
 	}
 
 	// 多探针扩大搜索范围
-	index := a.encoder.uint16BitFlip(a.encoder.splitUint64ForUint16(round.Simhash))
-	keys := convertUint16ToString(index)
-	rangeRounds, err := a.getRoundsByKeys(keys)
-	if err != nil {
-		return nil, err
+	var rangeRounds []*ChatRound
+	if a.encoder.masks16Bits != nil {
+		index := a.encoder.uint16BitFlip(a.encoder.splitUint64ForUint16(round.Simhash))
+		keys := convertUint16ToString(index)
+		rangeRounds, err = a.getRoundsByKeys(keys)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	rounds := make([]*ChatRound, 0, len(originalRounds)+len(rangeRounds))
