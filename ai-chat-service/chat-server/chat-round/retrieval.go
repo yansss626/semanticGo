@@ -19,6 +19,7 @@ type algorithmSimhash struct {
 var (
 	once  sync.Once
 	plane [][]float64
+	masks []uint16
 )
 
 func GetRetrievalObject(roundcache RoundCache) TextSearch {
@@ -27,6 +28,7 @@ func GetRetrievalObject(roundcache RoundCache) TextSearch {
 
 	once.Do(func() {
 		plane = generatehyperPlanefor64bits(cnf.Embedding.VectorDimensions)
+		masks = generatemasksFor16bits(2)
 	})
 
 	return &algorithmSimhash{
@@ -34,42 +36,44 @@ func GetRetrievalObject(roundcache RoundCache) TextSearch {
 		encoder: &simhashEncoder{
 			vectorDimensions: cnf.Embedding.VectorDimensions,
 			hyperPlane:       plane,
+			masks16Bits:      masks,
 		},
 		cosineThreshold: cnf.Embedding.CosineSimilarityThreshold,
 		distance:        cnf.Embedding.Distance,
 	}
 }
 
-func (a *algorithmSimhash) BuildIndex(vector []float32) uint64 {
-	// for 64bits simhash
-	return a.encoder.vectorToSimhash64(vector)
-}
-
 // retrieval
-func (a *algorithmSimhash) GetRounds(round *RoundMessage) ([]*ChatRound, error) {
+func (a *algorithmSimhash) getCandidateRounds(round *RoundMessage) ([]*ChatRound, error) {
 
-	// verify hamming distance
-	keys := convertUint16ToString(a.encoder.splitUint64(round.Simhash))
-
-	values := make([]*ChatRound, len(keys))
-	for i := 0; i < len(keys); i++ {
-		str, err := a.cache.Get(redis.GetKey(keys[i]))
-		if err != nil {
-			return nil, err
-		}
-		if str != "" {
-			value := &ChatRound{}
-			err := json.Unmarshal([]byte(str), value)
-			if err != nil {
-				return nil, fmt.Errorf("failed to unmarshal ChatRound: %w", err)
-			}
-			values[i] = value
-		}
+	// 获取原始索引
+	originalRounds, err := a.getOriginalRounds(round)
+	if err != nil {
+		return nil, err
 	}
-	return values, nil
+
+	// 多探针扩大搜索范围
+	index := a.encoder.uint16BitFlip(a.encoder.splitUint64ForUint16(round.Simhash))
+	keys := convertUint16ToString(index)
+	rangeRounds, err := a.getRoundsByKeys(keys)
+	if err != nil {
+		return nil, err
+	}
+
+	rounds := make([]*ChatRound, 0, len(originalRounds)+len(rangeRounds))
+	rounds = append(rounds, originalRounds...)
+	rounds = append(rounds, rangeRounds...)
+
+	return rounds, nil
 }
 
-func (a *algorithmSimhash) SimilarTextSearch(rounds []*ChatRound, round *RoundMessage) (bool, string, error) {
+func (a *algorithmSimhash) SimilarTextSearch(round *RoundMessage) (bool, string, error) {
+
+	round.Simhash = a.encoder.vectorToSimhash64(round.EmbeddingVector)
+	rounds, err := a.getCandidateRounds(round)
+	if err != nil {
+		return false, "", err
+	}
 
 	// match
 	var messages []*RoundMessage
@@ -121,9 +125,14 @@ func (a *algorithmSimhash) SimilarTextSearch(rounds []*ChatRound, round *RoundMe
 	return false, answer, nil
 }
 
-func (a *algorithmSimhash) InsertRound(rounds []*ChatRound, round *RoundMessage) error {
+func (a *algorithmSimhash) InsertText(round *RoundMessage) error {
 
-	keys := convertUint16ToString(a.encoder.splitUint64(round.Simhash))
+	rounds, err := a.getOriginalRounds(round)
+	if err != nil {
+		return err
+	}
+
+	keys := convertUint16ToString(a.encoder.splitUint64ForUint16(round.Simhash))
 
 	for i := 0; i < len(rounds); i++ {
 
@@ -161,4 +170,33 @@ func convertUint16ToString(u []uint16) []string {
 		s[i] = strconv.FormatUint(uint64(u[i]), 16)
 	}
 	return s
+}
+
+func (a *algorithmSimhash) getRoundsByKeys(keys []string) ([]*ChatRound, error) {
+	// security check
+	if len(keys) == 0 {
+		return nil, fmt.Errorf("failed to search index")
+	}
+
+	values := make([]*ChatRound, len(keys))
+	for i := 0; i < len(keys); i++ {
+		str, err := a.cache.Get(redis.GetKey(keys[i]))
+		if err != nil {
+			return nil, err
+		}
+		if str != "" {
+			value := &ChatRound{}
+			err := json.Unmarshal([]byte(str), value)
+			if err != nil {
+				return nil, fmt.Errorf("failed to unmarshal ChatRound: %w", err)
+			}
+			values[i] = value
+		}
+	}
+	return values, nil
+}
+
+func (a *algorithmSimhash) getOriginalRounds(round *RoundMessage) ([]*ChatRound, error) {
+	keys := convertUint16ToString(a.encoder.splitUint64ForUint16(round.Simhash))
+	return a.getRoundsByKeys(keys)
 }

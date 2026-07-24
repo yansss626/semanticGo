@@ -332,27 +332,21 @@ func (a *app) textRetrieval(text string, vector []float32) (*chat_round.Retrieva
 	round := &chat_round.RoundMessage{
 		Question:        text,
 		EmbeddingVector: vector,
-		Simhash:         object.BuildIndex(vector),
 	}
 
-	rounds, err := object.GetRounds(round)
-	if err != nil {
-		return nil, err
-	}
-	isSameText, str, err := object.SimilarTextSearch(rounds, round)
+	isSameText, str, err := object.SimilarTextSearch(round)
 	if err != nil {
 		return nil, err
 	}
 
 	return &chat_round.RetrievalResult{
 		Round:      round,
-		Rounds:     rounds,
 		Answer:     str,
 		IsSameText: isSameText,
 	}, nil
 }
 
-func (a *app) textUpdate(rounds []*chat_round.ChatRound, round *chat_round.RoundMessage) error {
+func (a *app) textUpdate(round *chat_round.RoundMessage) error {
 	cacheClient, err := chat_round.NewKvstoreCache()
 	if err != nil {
 		return err
@@ -360,11 +354,7 @@ func (a *app) textUpdate(rounds []*chat_round.ChatRound, round *chat_round.Round
 	defer cacheClient.Close()
 
 	object := chat_round.GetRetrievalObject(cacheClient)
-	err = object.InsertRound(rounds, round)
-	if err != nil {
-		return err
-	}
-	return nil
+	return object.InsertText(round)
 }
 
 func (a *app) getEmbeddingModel() *openai.Client {

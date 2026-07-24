@@ -9,6 +9,7 @@ import (
 type simhashEncoder struct {
 	vectorDimensions int
 	hyperPlane       [][]float64
+	masks16Bits      []uint16
 }
 
 func generatehyperPlanefor64bits(vectorDimensions int) [][]float64 {
@@ -27,6 +28,18 @@ func generatehyperPlanefor64bits(vectorDimensions int) [][]float64 {
 		HyperPlane[i] = row
 	}
 	return HyperPlane
+}
+
+func generatemasksFor16bits(flipcount int) []uint16 {
+
+	var masks []uint16
+	for i := 0; i < 1<<16; i++ {
+		if bits.OnesCount16(uint16(i)) == flipcount {
+			masks = append(masks, uint16(i))
+		}
+	}
+
+	return masks
 }
 
 func (s *simhashEncoder) cosineSimilarity(v1, v2 []float32) float64 {
@@ -77,11 +90,27 @@ func (s *simhashEncoder) calculateHammingDistanceFor64bits(simhash1, simhash2 ui
 	return bits.OnesCount64(simhash1 ^ simhash2)
 }
 
-func (s *simhashEncoder) splitUint64(x uint64) []uint16 {
+func (s *simhashEncoder) splitUint64ForUint16(x uint64) []uint16 {
 	return []uint16{
 		uint16(x & 0xFFFF),
 		uint16(x >> 16 & 0xFFFF),
 		uint16(x >> 32 & 0xFFFF),
 		uint16(x >> 48 & 0xFFFF),
 	}
+}
+
+func (s *simhashEncoder) uint16BitFlip(set []uint16) []uint16 {
+	if s.masks16Bits == nil {
+		return nil
+	}
+
+	result := make([]uint16, 0, len(set)*len(s.masks16Bits))
+
+	for i := 0; i < len(set); i++ {
+		for j := 0; j < len(s.masks16Bits); j++ {
+			result = append(result, set[i]^s.masks16Bits[j])
+		}
+	}
+
+	return result
 }

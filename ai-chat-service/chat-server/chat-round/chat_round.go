@@ -1,10 +1,8 @@
 package chat_round
 
 type TextSearch interface {
-	SimilarTextSearch(rounds []*ChatRound, round *RoundMessage) (bool, string, error)
-	InsertRound(rounds []*ChatRound, round *RoundMessage) error
-	GetRounds(round *RoundMessage) ([]*ChatRound, error)
-	BuildIndex(vector []float32) uint64
+	SimilarTextSearch(round *RoundMessage) (bool, string, error)
+	InsertText(round *RoundMessage) error
 }
 
 type ChatRound struct {
@@ -20,7 +18,6 @@ type RoundMessage struct {
 
 type RetrievalResult struct {
 	Round      *RoundMessage
-	Rounds     []*ChatRound
 	Answer     string
 	IsSameText bool
 }

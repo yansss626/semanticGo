@@ -99,7 +99,7 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 				if retrievalRes.Answer != "" {
 					if !retrievalRes.IsSameText {
 						go func() {
-							err := app.textUpdate(retrievalRes.Rounds, retrievalRes.Round)
+							err := app.textUpdate(retrievalRes.Round)
 							if err != nil {
 								s.log.Error(err)
 								return
@@ -146,7 +146,7 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 			}
 			if retrievalRes != nil && retrievalRes.Round != nil {
 				retrievalRes.Round.AnswerID = answerID
-				err = app.textUpdate(retrievalRes.Rounds, retrievalRes.Round)
+				err = app.textUpdate(retrievalRes.Round)
 				if err != nil {
 					s.log.Error(err)
 					return
@@ -286,7 +286,7 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 				if retrievalRes.Answer != "" {
 					if !retrievalRes.IsSameText {
 						go func() {
-							err := app.textUpdate(retrievalRes.Rounds, retrievalRes.Round)
+							err := app.textUpdate(retrievalRes.Round)
 							if err != nil {
 								s.log.Error(err)
 								return
@@ -377,7 +377,7 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 			}
 			if retrievalRes != nil && retrievalRes.Round != nil {
 				retrievalRes.Round.AnswerID = answerID
-				err = app.textUpdate(retrievalRes.Rounds, retrievalRes.Round)
+				err = app.textUpdate(retrievalRes.Round)
 				if err != nil {
 					s.log.Error(err)
 					return
