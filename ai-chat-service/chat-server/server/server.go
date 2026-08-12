@@ -83,26 +83,43 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 
 	// 相似文本检索
 	var retrievalRes *chat_round.RetrievalResult
+	var isReplaceSuccess bool // 判断是否成功对问题文本进行了同义词替换
+	var rawTextVector []float32
 	if cnf.Kvstore.Enabled {
 		embeddingClient := app.getEmbeddingModel()
-		embeddingReq := app.buildEmbeddingRequest(in.Message)
+		texts := make([]string, 1)
+		texts[0], isReplaceSuccess = app.synonymReplace(in.Message) // 同义词替换
+		if isReplaceSuccess {
+			texts = append(texts, in.Message)
+		}
+		embeddingReq := app.buildEmbeddingRequest(texts)
 		embeddingResp, err := embeddingClient.CreateEmbeddings(context.Background(), embeddingReq)
 		if err != nil {
 			s.log.Error(err)
 		} else {
 			textVector := embeddingResp.Data[0].Embedding
-			retrievalRes, err = app.textRetrieval(in.Message, textVector)
+			if isReplaceSuccess {
+				rawTextVector = embeddingResp.Data[1].Embedding
+			}
+			retrievalRes, err = app.textRetrieval(texts[0], textVector)
 			if err != nil {
 				s.log.Error(err)
-
 			} else {
 				if retrievalRes.Answer != "" {
 					if !retrievalRes.IsSameText {
 						go func() {
-							err := app.textUpdate(retrievalRes.Round)
+							err = app.textUpdate(retrievalRes.Round)
 							if err != nil {
 								s.log.Error(err)
 								return
+							}
+							// 替换前的原始文本也需要更新到缓存中
+							if isReplaceSuccess {
+								err = app.rawTextUpdate(in.Message, rawTextVector, retrievalRes.Round)
+								if err != nil {
+									s.log.Error(err)
+									return
+								}
 							}
 						}()
 					}
@@ -150,6 +167,14 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 				if err != nil {
 					s.log.Error(err)
 					return
+				}
+				// 替换前的原始文本也需要更新到缓存中
+				if isReplaceSuccess && rawTextVector != nil {
+					err = app.rawTextUpdate(in.Message, rawTextVector, retrievalRes.Round)
+					if err != nil {
+						s.log.Error(err)
+						return
+					}
 				}
 			}
 		}()
@@ -270,15 +295,25 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 
 	// 相似文本检索
 	var retrievalRes *chat_round.RetrievalResult
+	var isReplaceSuccess bool // 判断是否成功对问题文本进行了同义词替换
+	var rawTextVector []float32
 	if cnf.Kvstore.Enabled {
 		embeddingClient := app.getEmbeddingModel()
-		embeddingReq := app.buildEmbeddingRequest(in.Message)
+		texts := make([]string, 1)
+		texts[0], isReplaceSuccess = app.synonymReplace(in.Message) // 同义词替换
+		if isReplaceSuccess {
+			texts = append(texts, in.Message)
+		}
+		embeddingReq := app.buildEmbeddingRequest(texts)
 		embeddingResp, err := embeddingClient.CreateEmbeddings(context.Background(), embeddingReq)
 		if err != nil {
 			s.log.Error(err)
 		} else {
 			textVector := embeddingResp.Data[0].Embedding
-			retrievalRes, err = app.textRetrieval(in.Message, textVector)
+			if isReplaceSuccess {
+				rawTextVector = embeddingResp.Data[1].Embedding
+			}
+			retrievalRes, err = app.textRetrieval(texts[0], textVector)
 			if err != nil {
 				s.log.Error(err)
 
@@ -290,6 +325,14 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 							if err != nil {
 								s.log.Error(err)
 								return
+							}
+							// 替换前的原始文本也需要更新到缓存中
+							if isReplaceSuccess {
+								err = app.rawTextUpdate(in.Message, rawTextVector, retrievalRes.Round)
+								if err != nil {
+									s.log.Error(err)
+									return
+								}
 							}
 						}()
 					}
@@ -381,6 +424,14 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 				if err != nil {
 					s.log.Error(err)
 					return
+				}
+				// 替换前的原始文本也需要更新到缓存中
+				if isReplaceSuccess && rawTextVector != nil {
+					err = app.rawTextUpdate(in.Message, rawTextVector, retrievalRes.Round)
+					if err != nil {
+						s.log.Error(err)
+						return
+					}
 				}
 			}
 		}()

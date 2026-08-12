@@ -9,7 +9,7 @@ import (
 	"sync"
 )
 
-type algorithmSimhash struct {
+type AlgorithmSimhash struct {
 	encoder         *simhashEncoder
 	cache           RoundCache
 	cosineThreshold float64
@@ -31,7 +31,7 @@ func GetRetrievalObject(roundcache RoundCache) TextSearch {
 		masks = generatemasksFor16bits(2)
 	})
 
-	return &algorithmSimhash{
+	return &AlgorithmSimhash{
 		cache: roundcache,
 		encoder: &simhashEncoder{
 			vectorDimensions: cnf.Embedding.VectorDimensions,
@@ -44,7 +44,7 @@ func GetRetrievalObject(roundcache RoundCache) TextSearch {
 }
 
 // retrieval
-func (a *algorithmSimhash) getCandidateRounds(round *RoundMessage) ([]*ChatRound, error) {
+func (a *AlgorithmSimhash) getCandidateRounds(round *RoundMessage) ([]*ChatRound, error) {
 
 	// 获取原始索引
 	originalRounds, err := a.getOriginalRounds(round)
@@ -70,7 +70,7 @@ func (a *algorithmSimhash) getCandidateRounds(round *RoundMessage) ([]*ChatRound
 	return rounds, nil
 }
 
-func (a *algorithmSimhash) SimilarTextSearch(round *RoundMessage) (bool, string, error) {
+func (a *AlgorithmSimhash) SimilarTextSearch(round *RoundMessage) (bool, string, error) {
 
 	round.Simhash = a.encoder.vectorToSimhash64(round.EmbeddingVector)
 	rounds, err := a.getCandidateRounds(round)
@@ -128,7 +128,7 @@ func (a *algorithmSimhash) SimilarTextSearch(round *RoundMessage) (bool, string,
 	return false, answer, nil
 }
 
-func (a *algorithmSimhash) InsertText(round *RoundMessage) error {
+func (a *AlgorithmSimhash) InsertText(round *RoundMessage) error {
 
 	rounds, err := a.getOriginalRounds(round)
 	if err != nil {
@@ -175,7 +175,7 @@ func convertUint16ToString(u []uint16) []string {
 	return s
 }
 
-func (a *algorithmSimhash) getRoundsByKeys(keys []string) ([]*ChatRound, error) {
+func (a *AlgorithmSimhash) getRoundsByKeys(keys []string) ([]*ChatRound, error) {
 	// security check
 	if len(keys) == 0 {
 		return nil, fmt.Errorf("failed to search index")
@@ -199,7 +199,11 @@ func (a *algorithmSimhash) getRoundsByKeys(keys []string) ([]*ChatRound, error) 
 	return values, nil
 }
 
-func (a *algorithmSimhash) getOriginalRounds(round *RoundMessage) ([]*ChatRound, error) {
+func (a *AlgorithmSimhash) getOriginalRounds(round *RoundMessage) ([]*ChatRound, error) {
 	keys := convertUint16ToString(a.encoder.splitUint64ForUint16(round.Simhash))
 	return a.getRoundsByKeys(keys)
+}
+
+func (a *AlgorithmSimhash) Simhash64(vector []float32) uint64 {
+	return a.encoder.vectorToSimhash64(vector)
 }

@@ -12,6 +12,7 @@ import (
 	keywords_proto "ai-chat-service/services/keywords-filter/proto"
 	"ai-chat-service/services/tokenizer"
 	"context"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -365,9 +366,9 @@ func (a *app) getEmbeddingModel() *openai.Client {
 	return client
 }
 
-func (a *app) buildEmbeddingRequest(text string) *openai.EmbeddingRequest {
+func (a *app) buildEmbeddingRequest(texts []string) *openai.EmbeddingRequest {
 	return &openai.EmbeddingRequest{
-		Input:      []string{text},
+		Input:      texts,
 		Model:      openai.EmbeddingModel(a.openaiConf.EmbeddingModel),
 		Dimensions: a.openaiConf.EmbeddingVectorDimensions,
 	}
@@ -393,4 +394,34 @@ func (a *app) replyStream(message string, stream proto.Chat_ChatCompletionStream
 		return err
 	}
 	return nil
+}
+
+var synonymDict = map[string]string{
+	"rbtree":   "红黑树",
+	"RBT":      "红黑树",
+	"skiplist": "跳表",
+}
+
+func (a *app) synonymReplace(text string) (string, bool) {
+	newText := text
+	for k, v := range synonymDict {
+		newText = strings.ReplaceAll(newText, k, v)
+	}
+	return newText, newText != text
+}
+
+func (a *app) rawTextUpdate(rawText string, rawVector []float32, round *chat_round.RoundMessage) error {
+	object := chat_round.GetRetrievalObject(nil)
+	algo, ok := object.(*chat_round.AlgorithmSimhash)
+	if !ok {
+		return zerror.NewByMsg("failed to type assertion")
+	}
+	rawRound := &chat_round.RoundMessage{
+		EmbeddingVector: rawVector,
+		Simhash:         algo.Simhash64(rawVector),
+		Question:        rawText,
+		AnswerID:        round.AnswerID,
+	}
+
+	return a.textUpdate(rawRound)
 }
