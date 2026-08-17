@@ -12,7 +12,7 @@ chat:
   # openai 接口地址
   base_url: "http://localhost:8084/v1"
   # 使用的训练模型
-  model: "gpt-3.5-turbo"
+  model: "deepseek-v4-pro"
   # 单次请求的上下文总长度,包括：请求消息+响应消息
   max_tokens: 4096
   # 表示语言模型输出的随机性和创造性
@@ -68,7 +68,7 @@ dependOn:
     address: "localhost:50054"
     accessToken: "ang1chubdev1ozhome256487d22sapguuv1ozhom"
   tokenizer:
-    address: "http://192.168.239.161:3002"
+    address: "http://192.168.184.138:3002"
 vectorDB:
   # 访问地址
   url: "http://lb-4u4r1fk4-1ys6gv3rpmdan420.clb.ap-guangzhou.tencentclb.com:60000"
