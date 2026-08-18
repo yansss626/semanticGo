@@ -2,7 +2,7 @@
   "name": "chatgpt-web",
   "version": "2.10.8",
   "private": false,
-  "description": "零声教学AI助手",
+  "description": "SemanticGo: AI 助手",
   "author": "ChenZhaoYu <chenzhaoyu1994@gmail.com>",
   "keywords": [
     "chatgpt-web",

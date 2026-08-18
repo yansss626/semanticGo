@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { NAvatar } from 'naive-ui'
 import { useUserStore } from '@/store'
 import { isString } from '@/utils/is'
-import defaultAvatar from '@/assets/avatar.jpg'
+import defaultAvatar from '@/assets/user-avatar.jpg'
 
 interface Props {
   image?: boolean
@@ -21,6 +21,6 @@ const avatar = computed(() => userStore.userInfo.avatar)
     <NAvatar v-else round :src="defaultAvatar" />
   </template>
   <span v-else class="n-avatar text-[28px] dark:text-white">
-    <img src="/src/assets/0voice-avatar.jpg" />
+    <img src="/src/assets/SemanticGo-avatar.jpg" />
   </span>
 </template>
