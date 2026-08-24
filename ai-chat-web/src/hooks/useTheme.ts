@@ -9,7 +9,7 @@ export function useTheme() {
   const OsTheme = useOsTheme()
 
   const isDark = computed(() => {
-    return true
+    return false
     // if (appStore.theme === 'auto')
     //   return OsTheme.value === 'dark'
     // else

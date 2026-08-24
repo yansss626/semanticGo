@@ -83,7 +83,7 @@ function handleRegenerate() {
 <template>
   <div
     ref="messageRef"
-    class="flex w-full mb-6 overflow-hidden"
+    class="flex w-full max-w-5xl mx-auto mb-8 overflow-hidden"
     :class="[{ 'flex-row-reverse': inversion }]"
   >
     <div
@@ -92,8 +92,8 @@ function handleRegenerate() {
     >
       <AvatarComponent :image="inversion" />
     </div>
-    <div class="overflow-hidden text-sm " :class="[inversion ? 'items-end' : 'items-start']">
-      <p class="text-xs text-[#b4bbc4]" :class="[inversion ? 'text-right' : 'text-left']">
+    <div class="overflow-hidden text-[15px] max-w-[900px]" :class="[inversion ? 'items-end' : 'items-start']">
+      <p class="text-xs font-medium text-[#7C8798]" :class="[inversion ? 'text-right' : 'text-left']">
         {{ dateTime }}
       </p>
       <div

@@ -40,9 +40,9 @@ const wrapClass = computed(() => {
   return [
     'text-wrap',
     'min-w-[20px]',
-    'rounded-md',
-    isMobile.value ? 'p-2' : 'px-3 py-2',
-    props.inversion ? 'bg-[#d2f9d1]' : 'bg-[#f4f6f8]',
+    'rounded-xl',
+    isMobile.value ? 'p-3' : 'px-4 py-3',
+    props.inversion ? 'bg-[#DCFCE7] border border-[#BBF7D0]' : 'bg-white border border-[#E2E8F0] shadow-sm',
     props.inversion ? 'dark:bg-[#a1dc95]' : 'dark:bg-[#1e1e20]',
     props.inversion ? 'message-request' : 'message-reply',
     { 'text-red-500': props.error },
@@ -64,16 +64,15 @@ defineExpose({ textRef })
 </script>
 
 <template>
-  <div class="text-black" :class="wrapClass">
+  <div class="text-[#334155]" :class="wrapClass">
     <template v-if="loading">
       <span class="dark:text-white w-[4px] h-[20px] block animate-blink" />
     </template>
     <template v-else>
-      <div ref="textRef" class="leading-relaxed break-words">
-        <div v-if="!inversion">
+      <div ref="textRef" class="leading-7 break-words text-[15px]">
+        <div v-if="!inversion">         
           <div v-if="!asRawText" class="markdown-body" v-html="text" />
           <div v-else class="whitespace-pre-wrap" v-text="text" />
-          <p style="color:#6e7781;font-size:12px;">由 SemanticGo 生成</p>
         </div>
         <div v-else class="whitespace-pre-wrap" v-text="text" />
       </div>

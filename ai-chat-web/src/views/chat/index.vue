@@ -10,7 +10,6 @@ import { useScroll } from './hooks/useScroll'
 import { useChat } from './hooks/useChat'
 import { useCopyCode } from './hooks/useCopyCode'
 import { useUsingContext } from './hooks/useUsingContext'
-import HeaderComponent from './components/Header/index.vue'
 import { HoverButton, SvgIcon } from '@/components/common'
 import { useBasicLayout } from '@/hooks/useBasicLayout'
 import { useChatStore, usePromptStore } from '@/store'
@@ -27,12 +26,43 @@ const ms = useMessage()
 
 const chatStore = useChatStore()
 
+const inputThemeOverrides = {
+  color: '#FFFFFF',
+  colorFocus: '#FFFFFF',
+  textColor: '#1F2937',
+  placeholderColor: '#94A3B8',
+  border: '1px solid #CBD5E1',
+  borderHover: '1px solid #A78BFA',
+  borderFocus: '1px solid #8B5CF6',
+  boxShadowFocus: '0 0 0 2px rgba(139, 92, 246, 0.15)',
+  borderRadius: '12px',
+  caretColor: '#8B5CF6',
+  fontSizeMedium: '15px',
+}
+
+const sendButtonThemeOverrides = {
+  colorPrimary: '#8B5CF6',
+  colorPrimaryHover: '#7C3AED',
+  colorPrimaryPressed: '#6D28D9',
+  colorPrimarySuppl: '#8B5CF6',
+
+  colorDisabled: '#8B5CF6',
+  colorDisabledPrimary: '#8B5CF6',
+  colorDisabledHover: '#8B5CF6',
+
+  textColorDisabled: '#FFFFFF',
+
+  opacityDisabled: '1',
+
+  borderRadiusMedium: '10px',
+}
+
 useCopyCode()
 
 const { isMobile } = useBasicLayout()
 const { addChat, updateChat, updateChatSome, getChatByUuidAndIndex } = useChat()
 const { scrollRef, scrollToBottom, scrollToBottomIfAtBottom } = useScroll()
-const { usingContext, toggleUsingContext } = useUsingContext()
+const { usingContext } = useUsingContext()
 
 const { uuid } = route.params as { uuid: string }
 
@@ -466,21 +496,16 @@ onUnmounted(() => {
 
 <template>
   <div class="flex flex-col w-full h-full">
-    <HeaderComponent
-      v-if="isMobile"
-      :using-context="usingContext"
-      @export="handleExport"
-      @toggle-using-context="toggleUsingContext"
-    />
+
     <main class="flex-1 overflow-hidden">
       <div
         id="scrollRef"
         ref="scrollRef"
-        class="h-full overflow-hidden overflow-y-auto"
+        class="h-full overflow-y-auto bg-[#F8FAFC]"
       >
         <div
           id="image-wrapper"
-          class="w-full max-w-screen-xl m-auto dark:bg-[#101014]"
+          class="w-full max-w-screen-xl m-auto"
           :class="[isMobile ? 'p-2' : 'p-4']"
         >
           <template v-if="!dataSources.length">
@@ -515,31 +540,22 @@ onUnmounted(() => {
         </div>
       </div>
     </main>
-    <footer :class="footerClass">
-      <div class="w-full max-w-screen-xl m-auto">
-        <div class="flex items-center justify-between space-x-2">
+    <footer class="border-t border-[#E5E7EB] bg-white/95 backdrop-blur" :class="footerClass">
+      <div class="flex justify-center">
+        <div class="flex items-center justify-center space-x-3">
           <HoverButton @click="handleClear">
-            <span class="text-xl text-[#4f555e] dark:text-white">
+            <span class="text-xl text-[#64748B] transition-colors hover:text-[#8B5CF6]">
               <SvgIcon icon="ri:delete-bin-line" />
             </span>
           </HoverButton>
-          <HoverButton v-if="!isMobile" @click="handleExport">
-            <span class="text-xl text-[#4f555e] dark:text-white">
-              <SvgIcon icon="ri:download-2-line" />
-            </span>
-          </HoverButton>
-          <HoverButton v-if="!isMobile" @click="toggleUsingContext">
-            <span class="text-xl" :class="{ 'text-[#4b9e5f]': usingContext, 'text-[#a8071a]': !usingContext }">
-              <SvgIcon icon="ri:chat-history-line" />
-            </span>
-          </HoverButton>
-          <NAutoComplete v-model:value="prompt" :options="searchOptions" :render-label="renderOption">
+          <NAutoComplete style="width: 700px;" v-model:value="prompt" :options="searchOptions" :render-label="renderOption">
             <template #default="{ handleInput, handleBlur, handleFocus }">
               <NInput
                 ref="inputRef"
                 v-model:value="prompt"
                 type="textarea"
                 :placeholder="placeholder"
+                :theme-overrides="inputThemeOverrides"
                 :autosize="{ minRows: 1, maxRows: isMobile ? 4 : 8 }"
                 @input="handleInput"
                 @focus="handleFocus"
@@ -548,9 +564,9 @@ onUnmounted(() => {
               />
             </template>
           </NAutoComplete>
-          <NButton type="primary" :disabled="buttonDisabled" @click="handleSubmit">
+          <NButton type="primary" :disabled="buttonDisabled" :theme-overrides="sendButtonThemeOverrides" @click="handleSubmit">
             <template #icon>
-              <span class="dark:text-black">
+              <span class="dark:text-white">
                 <SvgIcon icon="ri:send-plane-fill" />
               </span>
             </template>

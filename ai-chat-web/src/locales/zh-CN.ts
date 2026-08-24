@@ -28,8 +28,8 @@ export default {
     unauthorizedTips: '未经授权，请先进行验证。',
   },
   chat: {
-    placeholder: "Let's Go （Shift + Enter = 换行）",
-    placeholderMobile: '来说点什么...',
+    placeholder: "输入消息，Shift + Enter 换行",
+    placeholderMobile: '输入消息...',
     copy: '复制',
     copied: '复制成功',
     copyCode: '复制代码',

@@ -1,18 +1,17 @@
 <script setup lang='ts'>
 import type { CSSProperties } from 'vue'
-import { computed, ref, watch } from 'vue'
-import { NButton, NLayoutSider } from 'naive-ui'
+import { computed, watch } from 'vue'
+import { NButton, NLayoutSider, NTooltip } from 'naive-ui'
 import List from './List.vue'
-import Footer from './Footer.vue'
 import { useAppStore, useChatStore } from '@/store'
 import { useBasicLayout } from '@/hooks/useBasicLayout'
-import { PromptStore } from '@/components/common'
+
 
 const appStore = useAppStore()
 const chatStore = useChatStore()
 
 const { isMobile } = useBasicLayout()
-const show = ref(false)
+
 
 const collapsed = computed(() => appStore.siderCollapsed)
 
@@ -60,36 +59,43 @@ watch(
 <template>
   <NLayoutSider
     :collapsed="collapsed"
-    :collapsed-width="0"
+    :collapsed-width="72"
     :width="260"
-    :show-trigger="isMobile ? false : 'arrow-circle'"
     collapse-mode="transform"
     position="absolute"
-    bordered
-    :style="getMobileClass"
-    @update-collapsed="handleUpdateCollapsed"
   >
     <div class="flex flex-col h-full" :style="mobileSafeArea">
+      <div class="relative flex items-center justify-center h-14 border-b">
+        <NTooltip>
+          <template #trigger>
+            <button
+              class="absolute left-4 flex items-center justify-center w-8 h-8 rounded-lg hover:bg-gray-100"
+              @click="handleUpdateCollapsed"
+            >
+              <SvgIcon
+                class="text-2xl"
+                icon="ri:menu-line"
+              />
+            </button>
+          </template>
+          {{ collapsed ? '打开边栏' : '关闭边栏' }}
+        </NTooltip>
+
+
+      </div>
       <main class="flex flex-col flex-1 min-h-0">
-        <div class="p-4">
+        <div v-if="!collapsed" class="px-4 pt-3">
           <NButton dashed block @click="handleAdd">
-            New chat
+            新建聊天
           </NButton>
         </div>
-        <div class="flex-1 min-h-0 pb-4 overflow-hidden">
+        <div v-if="!collapsed" class="flex-1 min-h-0 pb-4 overflow-hidden">
           <List />
         </div>
-        <div class="p-4">
-          <NButton block @click="show = true">
-            Prompt Store
-          </NButton>
-        </div>
       </main>
-      <Footer />
     </div>
   </NLayoutSider>
   <template v-if="isMobile">
     <div v-show="!collapsed" class="fixed inset-0 z-40 bg-black/40" @click="handleUpdateCollapsed" />
   </template>
-  <PromptStore v-model:visible="show" />
 </template>
