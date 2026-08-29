@@ -306,56 +306,28 @@ func (a *app) sensitive(in *proto.ChatCompletionRequest) (ok bool, msg string, e
 	return
 }
 
-func (a *app) saveRound(key string, value string) error {
-	client, err := chat_round.NewKvstoreCache()
-	if err != nil {
-		return err
-	}
-	defer client.Close()
-
-	_, err = client.Set(key, value)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (a *app) textRetrieval(text string, vector []float32) (*chat_round.RetrievalResult, error) {
+func (a *app) textRetrieval(text string, vector []float32) (string, error) {
 	cacheClient, err := chat_round.NewKvstoreCache()
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	defer cacheClient.Close()
 
-	object := chat_round.GetRetrievalObject(cacheClient)
+	round := chat_round.GetRoundObject(cacheClient)
 
-	round := &chat_round.RoundMessage{
-		Question:        text,
-		EmbeddingVector: vector,
-	}
-
-	isSameText, str, err := object.SimilarTextSearch(round)
-	if err != nil {
-		return nil, err
-	}
-
-	return &chat_round.RetrievalResult{
-		Round:      round,
-		Answer:     str,
-		IsSameText: isSameText,
-	}, nil
+	return round.Retrieval(text, vector)
 }
 
-func (a *app) textUpdate(round *chat_round.RoundMessage) error {
+func (a *app) textUpdate(vector []float32, query string, answer string) error {
 	cacheClient, err := chat_round.NewKvstoreCache()
 	if err != nil {
 		return err
 	}
 	defer cacheClient.Close()
 
-	object := chat_round.GetRetrievalObject(cacheClient)
-	return object.InsertText(round)
+	round := chat_round.GetRoundObject(cacheClient)
+
+	return round.Update(vector, query, answer)
 }
 
 func (a *app) getEmbeddingModel() *openai.Client {
@@ -408,20 +380,4 @@ func (a *app) synonymReplace(text string) (string, bool) {
 		newText = strings.ReplaceAll(newText, k, v)
 	}
 	return newText, newText != text
-}
-
-func (a *app) rawTextUpdate(rawText string, rawVector []float32, round *chat_round.RoundMessage) error {
-	object := chat_round.GetRetrievalObject(nil)
-	algo, ok := object.(*chat_round.AlgorithmSimhash)
-	if !ok {
-		return zerror.NewByMsg("failed to type assertion")
-	}
-	rawRound := &chat_round.RoundMessage{
-		EmbeddingVector: rawVector,
-		Simhash:         algo.Simhash64(rawVector),
-		Question:        rawText,
-		AnswerID:        round.AnswerID,
-	}
-
-	return a.textUpdate(rawRound)
 }

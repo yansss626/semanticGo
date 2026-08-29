@@ -2,7 +2,6 @@ package server
 
 import (
 	chat_context "ai-chat-service/chat-server/chat-context"
-	chat_round "ai-chat-service/chat-server/chat-round"
 	"ai-chat-service/chat-server/data"
 	metrics_bus "ai-chat-service/chat-server/metrics-bus"
 	vector_data "ai-chat-service/chat-server/vector-data"
@@ -18,7 +17,6 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/jsonpb"
-	"github.com/google/uuid"
 	"github.com/sashabaranov/go-openai"
 )
 
@@ -82,48 +80,31 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 	}
 
 	// 相似文本检索
-	var retrievalRes *chat_round.RetrievalResult
-	var isReplaceSuccess bool // 判断是否成功对问题文本进行了同义词替换
-	var rawTextVector []float32
+	var textVector []float32
 	if cnf.Kvstore.Enabled {
 		embeddingClient := app.getEmbeddingModel()
 		texts := make([]string, 1)
-		texts[0], isReplaceSuccess = app.synonymReplace(in.Message) // 同义词替换
-		if isReplaceSuccess {
-			texts = append(texts, in.Message)
-		}
 		embeddingReq := app.buildEmbeddingRequest(texts)
 		embeddingResp, err := embeddingClient.CreateEmbeddings(context.Background(), embeddingReq)
 		if err != nil {
 			s.log.Error(err)
 		} else {
-			textVector := embeddingResp.Data[0].Embedding
-			if isReplaceSuccess {
-				rawTextVector = embeddingResp.Data[1].Embedding
-			}
-			retrievalRes, err = app.textRetrieval(texts[0], textVector)
+			textVector = embeddingResp.Data[0].Embedding
+
+			answer, err := app.textRetrieval(texts[0], textVector)
 			if err != nil {
 				s.log.Error(err)
 			} else {
-				if retrievalRes.Answer != "" {
-					if !retrievalRes.IsSameText {
-						go func() {
-							err = app.textUpdate(retrievalRes.Round)
-							if err != nil {
-								s.log.Error(err)
-								return
-							}
-							// 替换前的原始文本也需要更新到缓存中
-							if isReplaceSuccess {
-								err = app.rawTextUpdate(in.Message, rawTextVector, retrievalRes.Round)
-								if err != nil {
-									s.log.Error(err)
-									return
-								}
-							}
-						}()
-					}
-					resp := app.buildChatCompletionResponse(retrievalRes.Answer)
+				if answer != "" {
+					go func() {
+						err = app.textUpdate(textVector, texts[0], answer)
+						if err != nil {
+							s.log.Error(err)
+						}
+
+					}()
+
+					resp := app.buildChatCompletionResponse(answer)
 					return resp, nil
 				}
 			}
@@ -155,28 +136,7 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 	// kvstore
 	if cnf.Kvstore.Enabled {
 		go func() {
-			answerID := uuid.New().String()
-			err := app.saveRound(answerID, resp.Choices[0].Message.Content)
-			if err != nil {
-				s.log.Error(err)
-				return
-			}
-			if retrievalRes != nil && retrievalRes.Round != nil {
-				retrievalRes.Round.AnswerID = answerID
-				err = app.textUpdate(retrievalRes.Round)
-				if err != nil {
-					s.log.Error(err)
-					return
-				}
-				// 替换前的原始文本也需要更新到缓存中
-				if isReplaceSuccess && rawTextVector != nil {
-					err = app.rawTextUpdate(in.Message, rawTextVector, retrievalRes.Round)
-					if err != nil {
-						s.log.Error(err)
-						return
-					}
-				}
-			}
+			err = app.textUpdate(textVector, in.Message, resp.Choices[0].Message.Content)
 		}()
 	}
 	// redis 保存上下文
@@ -294,49 +254,31 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 	}
 
 	// 相似文本检索
-	var retrievalRes *chat_round.RetrievalResult
-	var isReplaceSuccess bool // 判断是否成功对问题文本进行了同义词替换
-	var rawTextVector []float32
+	var textVector []float32
 	if cnf.Kvstore.Enabled {
 		embeddingClient := app.getEmbeddingModel()
 		texts := make([]string, 1)
-		texts[0], isReplaceSuccess = app.synonymReplace(in.Message) // 同义词替换
-		if isReplaceSuccess {
-			texts = append(texts, in.Message)
-		}
 		embeddingReq := app.buildEmbeddingRequest(texts)
 		embeddingResp, err := embeddingClient.CreateEmbeddings(context.Background(), embeddingReq)
 		if err != nil {
 			s.log.Error(err)
 		} else {
-			textVector := embeddingResp.Data[0].Embedding
-			if isReplaceSuccess {
-				rawTextVector = embeddingResp.Data[1].Embedding
-			}
-			retrievalRes, err = app.textRetrieval(texts[0], textVector)
+			textVector = embeddingResp.Data[0].Embedding
+
+			answer, err := app.textRetrieval(texts[0], textVector)
 			if err != nil {
 				s.log.Error(err)
-
 			} else {
-				if retrievalRes.Answer != "" {
-					if !retrievalRes.IsSameText {
-						go func() {
-							err := app.textUpdate(retrievalRes.Round)
-							if err != nil {
-								s.log.Error(err)
-								return
-							}
-							// 替换前的原始文本也需要更新到缓存中
-							if isReplaceSuccess {
-								err = app.rawTextUpdate(in.Message, rawTextVector, retrievalRes.Round)
-								if err != nil {
-									s.log.Error(err)
-									return
-								}
-							}
-						}()
-					}
-					err = app.replyStream(retrievalRes.Answer, stream)
+				if answer != "" {
+					go func() {
+						err = app.textUpdate(textVector, texts[0], answer)
+						if err != nil {
+							s.log.Error(err)
+						}
+
+					}()
+
+					err = app.replyStream(answer, stream)
 					if err != nil {
 						s.log.Error(err)
 						return err
@@ -412,28 +354,7 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 
 	if cnf.Kvstore.Enabled {
 		go func() {
-			answerID := uuid.New().String()
-			err := app.saveRound(answerID, resultMessage.Content)
-			if err != nil {
-				s.log.Error(err)
-				return
-			}
-			if retrievalRes != nil && retrievalRes.Round != nil {
-				retrievalRes.Round.AnswerID = answerID
-				err = app.textUpdate(retrievalRes.Round)
-				if err != nil {
-					s.log.Error(err)
-					return
-				}
-				// 替换前的原始文本也需要更新到缓存中
-				if isReplaceSuccess && rawTextVector != nil {
-					err = app.rawTextUpdate(in.Message, rawTextVector, retrievalRes.Round)
-					if err != nil {
-						s.log.Error(err)
-						return
-					}
-				}
-			}
+			err = app.textUpdate(textVector, in.Message, resultMessage.Content)
 		}()
 	}
 	go func() {
