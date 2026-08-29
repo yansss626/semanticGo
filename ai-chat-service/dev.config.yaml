@@ -92,5 +92,11 @@ Embedding: # Embedding 模型，将问题文本转化为数字向量
   base_url: "https://ws-7wl00bp88ie0ya61.cn-beijing.maas.aliyuncs.com/compatible-mode/v1" 
   model: "qwen3.7-text-embedding"
   vector_dimensions: 256
-  cosine_similarity_threshold: 0.94
-  distance: 10
+  recall_score: 0.80
+Rerank: 
+  api_key: "sk-ws-H.EXLXHEY.e3aR.MEUCIQDc_2mj06qTCurGhKMgWzprHlgcsO1pLo1T4gsYy-MrxwIgIyJEFtKb1hdUV3qmsgxbFbcmyUAOlqSznpL8gLV-zmg"
+  base_url: "https://ws-7wl00bp88ie0ya61.cn-beijing.maas.aliyuncs.com/compatible-api/v1/reranks" 
+  model: "qwen3-rerank"
+  instruct: "Retrieve semantically similar text"
+  topK: 10
+  rerank_score: 0.9

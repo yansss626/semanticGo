@@ -76,12 +76,20 @@ type Config struct {
 		Enabled            bool
 	}
 	Embedding struct {
-		ApiKey                    string  `mapstructure:"api_key"`
-		BaseUrl                   string  `mapstructure:"base_url"`
-		Model                     string  `mapstructure:"model"`
-		VectorDimensions          int     `mapstructure:"vector_dimensions"`
-		CosineSimilarityThreshold float64 `mapstructure:"cosine_similarity_threshold"`
-		Distance                  int
+		ApiKey           string  `mapstructure:"api_key"`
+		BaseUrl          string  `mapstructure:"base_url"`
+		Model            string  `mapstructure:"model"`
+		VectorDimensions int     `mapstructure:"vector_dimensions"`
+		RecallScore      float64 `mapstructure:"recall_score"`
+		Distance         int
+	}
+	Rerank struct {
+		ApiKey      string  `mapstructure:"api_key"`
+		BaseUrl     string  `mapstructure:"base_url"`
+		Model       string  `mapstructure:"model"`
+		Instruct    string  `mapstructure:"instruct"`
+		TopK        int     `mapstructure:"topK"`
+		RerankScore float64 `mapstructure:"rerank_score"`
 	}
 }
 
