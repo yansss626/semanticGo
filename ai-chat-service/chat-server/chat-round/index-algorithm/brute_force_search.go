@@ -15,7 +15,7 @@ type Cache interface {
 }
 
 type BruteForceSearch struct {
-	cache Cache
+	Cache Cache
 }
 
 var _ VectorIndex = (*BruteForceSearch)(nil)
@@ -24,7 +24,7 @@ func (b *BruteForceSearch) Add(query string, vector []float32) error {
 
 	key := "SemanticGo_candidates_index"
 
-	str, err := b.cache.Get(key)
+	str, err := b.Cache.Get(key)
 	if err != nil {
 		return err
 	}
@@ -36,7 +36,7 @@ func (b *BruteForceSearch) Add(query string, vector []float32) error {
 		if err != nil {
 			return err
 		}
-		_, err = b.cache.Set(key, string(value))
+		_, err = b.Cache.Set(key, string(value))
 		if err != nil {
 			return err
 		}
@@ -53,7 +53,7 @@ func (b *BruteForceSearch) Add(query string, vector []float32) error {
 		if err != nil {
 			return err
 		}
-		_, err = b.cache.Mod(key, string(value))
+		_, err = b.Cache.Mod(key, string(value))
 		if err != nil {
 			return err
 		}
@@ -110,7 +110,7 @@ func (b *BruteForceSearch) getCandidates() ([]string, []*Candidate, error) {
 
 	key := "SemanticGo_candidates_index"
 
-	value, err := b.cache.Get(key)
+	value, err := b.Cache.Get(key)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -128,7 +128,7 @@ func (b *BruteForceSearch) getCandidates() ([]string, []*Candidate, error) {
 	candidates := make([]*Candidate, 0, len(querys))
 	validQueries := make([]string, 0, len(querys))
 	for i := 0; i < len(querys); i++ {
-		value, err = b.cache.Get(querys[i])
+		value, err = b.Cache.Get(querys[i])
 		if err != nil {
 			return nil, nil, err
 		}

@@ -2,25 +2,48 @@ package chat_round
 
 import (
 	index_algorithm "ai-chat-service/chat-server/chat-round/index-algorithm"
+	"ai-chat-service/chat-server/chat-round/reranker"
+	"ai-chat-service/pkg/config"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"time"
 )
 
 type cacheLidis struct {
 	cache RoundCache
 	index index_algorithm.VectorIndex
-	rank  reRanker
+	rank  reranker.ReRanker
 	k     int
 }
 
 func GetRoundObject(cache RoundCache) Round {
+	cnf := config.GetConfig()
+
+	//remote_rerank
+	rerank := &reranker.AlibabaRerank{
+		BaseUrl:  cnf.Rerank.BaseUrl,
+		ApiKey:   cnf.Rerank.ApiKey,
+		Model:    cnf.Rerank.Model,
+		Instruct: cnf.Rerank.Instruct,
+		Client: &http.Client{
+			Timeout: 10 * time.Second,
+		},
+		ScoreThreshold: cnf.Rerank.RerankScore,
+	}
+
+	// brute forve search
+	vectorIndex := &index_algorithm.BruteForceSearch{
+		Cache: cache,
+	}
+	//
+
 	return &cacheLidis{
 		cache: cache,
+		rank:  rerank,
+		k:     cnf.Rerank.TopK,
+		index: vectorIndex,
 	} // 待完善
-}
-
-type reRanker interface {
-	reRank(query string, results []*index_algorithm.SearchResult) (*index_algorithm.SearchResult, error)
 }
 
 func (c *cacheLidis) Retrieval(query string, vector []float32) (string, error) {
@@ -29,7 +52,7 @@ func (c *cacheLidis) Retrieval(query string, vector []float32) (string, error) {
 		return "", err
 	}
 
-	bestResults, err := c.rank.reRank(query, topKResults)
+	bestResults, err := c.rank.ReRank(query, topKResults)
 	if err != nil {
 		return "", err
 	}
