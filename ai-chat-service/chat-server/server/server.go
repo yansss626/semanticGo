@@ -113,6 +113,10 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 
 	client := app.getOpenaiClient()
 	req, tokens, currTokens, currMessage, err := app.buildChatCompletionRequest(in, false)
+	if err != nil {
+		s.log.Error(err)
+		return nil, err
+	}
 	resp, err := client.CreateChatCompletion(ctx, req)
 	if err != nil {
 		s.log.Error(err)
