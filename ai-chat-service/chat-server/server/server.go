@@ -290,7 +290,11 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 	}
 
 	client := app.getOpenaiClient()
-	req, tokens, currTokens, currMessage, err := app.buildChatCompletionRequest(in, false)
+	req, tokens, currTokens, currMessage, err := app.buildChatCompletionRequest(in, true)
+	if err != nil {
+		s.log.Error(err)
+		return err
+	}
 	chatStream, err := client.CreateChatCompletionStream(stream.Context(), req)
 	if err != nil {
 		s.busMetrics.ErrQuestionsTotalCounter.Inc()
