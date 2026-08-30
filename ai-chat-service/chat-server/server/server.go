@@ -83,7 +83,7 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 	var textVector []float32
 	if cnf.Kvstore.Enabled {
 		embeddingClient := app.getEmbeddingModel()
-		texts := make([]string, 1)
+		texts := []string{in.Message}
 		embeddingReq := app.buildEmbeddingRequest(texts)
 		embeddingResp, err := embeddingClient.CreateEmbeddings(context.Background(), embeddingReq)
 		if err != nil {
@@ -257,7 +257,7 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 	var textVector []float32
 	if cnf.Kvstore.Enabled {
 		embeddingClient := app.getEmbeddingModel()
-		texts := make([]string, 1)
+		texts := []string{in.Message}
 		embeddingReq := app.buildEmbeddingRequest(texts)
 		embeddingResp, err := embeddingClient.CreateEmbeddings(context.Background(), embeddingReq)
 		if err != nil {
