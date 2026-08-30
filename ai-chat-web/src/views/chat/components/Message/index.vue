@@ -15,6 +15,8 @@ interface Props {
   inversion?: boolean
   error?: boolean
   loading?: boolean
+  answerSource?: 'public_model' | 'cache'
+  tokenCount?: number
 }
 
 interface Emit {
@@ -107,6 +109,8 @@ function handleRegenerate() {
           :text="text"
           :loading="loading"
           :as-raw-text="asRawText"
+          :answer-source="props.answerSource"
+          :token-count="props.tokenCount"
         />
         <div class="flex flex-col">
           <button

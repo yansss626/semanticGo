@@ -13,9 +13,20 @@ interface Props {
   text?: string
   loading?: boolean
   asRawText?: boolean
+  answerSource?: 'public_model' | 'cache'
+  tokenCount?: number
 }
 
 const props = defineProps<Props>()
+const sourceLabel = computed(() => {
+  if (props.answerSource === 'public_model')
+    return `公有大模型 · 消耗 ${props.tokenCount ?? 0} tokens`
+
+  if (props.answerSource === 'cache')
+    return `缓存命中 · 节省 ${props.tokenCount ?? 0} tokens`
+
+  return ''
+})
 
 const { isMobile } = useBasicLayout()
 
@@ -75,6 +86,12 @@ defineExpose({ textRef })
           <div v-else class="whitespace-pre-wrap" v-text="text" />
         </div>
         <div v-else class="whitespace-pre-wrap" v-text="text" />
+      </div>
+      <div
+      v-if="!inversion && sourceLabel"
+      class="mt-1.5 text-[12px] leading-5 text-[#94A3B8] dark:text-[#8B8B93]"
+      >
+      {{ sourceLabel }}
       </div>
     </template>
   </div>

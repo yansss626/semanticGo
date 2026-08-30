@@ -153,6 +153,7 @@ async function onConversation() {
             chunk = responseText.substring(lastIndex)
           try {
             const data = JSON.parse(chunk)
+            console.log('chat stream data:', data)
             updateChat(
               +uuid,
               dataSources.value.length - 1,
@@ -162,6 +163,8 @@ async function onConversation() {
                 inversion: false,
                 error: false,
                 loading: false,
+                answerSource: data.answerSource,
+                tokenCount: data.tokenCount,
                 conversationOptions: { conversationId: data.conversationId, parentMessageId: data.id },
                 requestOptions: { prompt: message, options: { ...options } },
               },
@@ -524,6 +527,8 @@ onUnmounted(() => {
                 :inversion="item.inversion"
                 :error="item.error"
                 :loading="item.loading"
+                :answer-source="item.answerSource"
+                :token-count="item.tokenCount"
                 @regenerate="onRegenerate(index)"
                 @delete="handleDelete(index)"
               />
