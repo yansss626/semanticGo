@@ -35,6 +35,7 @@ type openaiConf struct {
 	ContextTTL        int
 	ContextLen        int
 	MinResponseTokens int
+	ReasoningEffort   string
 	// Embedding Model
 	EmbeddingApiKey           string
 	EmbeddingBaseUrl          string
@@ -62,6 +63,7 @@ func (s *chatService) newApp(in *proto.ChatCompletionRequest, contextCache chat_
 		ContextTTL:        s.config.Chat.ContextTTL,
 		ContextLen:        s.config.Chat.ContextLen,
 		MinResponseTokens: s.config.Chat.MinResponseTokens,
+		ReasoningEffort:   s.config.Chat.ReasoningEffort,
 
 		EmbeddingApiKey:           s.config.Embedding.ApiKey,
 		EmbeddingBaseUrl:          s.config.Embedding.BaseUrl,
@@ -130,6 +132,7 @@ func (a *app) buildChatCompletionRequest(in *proto.ChatCompletionRequest, stream
 		PresencePenalty:  a.openaiConf.PresencePenalty,
 		FrequencyPenalty: a.openaiConf.FrequencyPenalty,
 		Stream:           stream,
+		ReasoningEffort:  a.openaiConf.ReasoningEffort,
 	}
 	contextList := make([]*chat_context.ChatMessage, 0)
 	if in.EnableContext {

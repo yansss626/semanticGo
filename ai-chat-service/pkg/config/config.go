@@ -29,6 +29,7 @@ type Config struct {
 		MinResponseTokens int     `mapstructure:"min_response_tokens"`
 		ContextTTL        int     `mapstructure:"context_ttl"`
 		ContextLen        int     `mapstructure:"context_len"`
+		ReasoningEffort   string  `mapstructure:"reasoning_effort"`
 	}
 	Mysql struct {
 		DSN         string
