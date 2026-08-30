@@ -21,6 +21,11 @@ import (
 
 const ChatPrimedTokens = 2
 
+const (
+	AnswerSourcePublicModel = "public_model"
+	AnswerSourceCache       = "cache"
+)
+
 type openaiConf struct {
 	// LLM model
 	ApiKey            string
@@ -235,6 +240,14 @@ func (a *app) buildChatCompletionStreamResponse(id, delta, finishReason string) 
 	return res
 }
 
+func (a *app) buildAnswerMetaResponse(id, source string, tokenCount int) *proto.ChatCompletionStreamResponse {
+	return &proto.ChatCompletionStreamResponse{
+		Id:           id,
+		AnswerSource: source,
+		TokenCount:   int32(tokenCount),
+	}
+}
+
 func (a *app) buildChatCompletionStreamResponseList(id, msg string) []*proto.ChatCompletionStreamResponse {
 	list := make([]*proto.ChatCompletionStreamResponse, 0)
 	for _, delta := range msg {
@@ -349,6 +362,26 @@ func (a *app) buildEmbeddingRequest(texts []string) *openai.EmbeddingRequest {
 	}
 }
 
+func (a *app) estimateSavedTokens(in *proto.ChatCompletionRequest, answer string) (int, error) {
+
+	_, promptTokens, _, _, err := a.buildChatCompletionRequest(in, true)
+	if err != nil {
+		return 0, err
+	}
+
+	answerMessage := openai.ChatCompletionMessage{
+		Role:    openai.ChatMessageRoleAssistant,
+		Content: answer,
+	}
+
+	answerTokens, err := tokenizer.GetTokens(&answerMessage, a.openaiConf.Model)
+	if err != nil {
+		return 0, err
+	}
+
+	return promptTokens + answerTokens, nil
+}
+
 func (a *app) replyStream(message string, stream proto.Chat_ChatCompletionStreamServer) error {
 	resId := uuid.New().String()
 	startRes := a.buildChatCompletionStreamResponse(resId, "", "")
@@ -368,6 +401,43 @@ func (a *app) replyStream(message string, stream proto.Chat_ChatCompletionStream
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func (a *app) replyStreamWithMeta(message string, source string, tokenCount int, stream proto.Chat_ChatCompletionStreamServer) error {
+
+	resId := uuid.New().String()
+
+	startRes := a.buildChatCompletionStreamResponse(resId, "", "")
+	err := stream.Send(startRes)
+	if err != nil {
+		return err
+	}
+	resList := a.buildChatCompletionStreamResponseList(
+		resId,
+		message,
+	)
+	for _, res := range resList {
+		if err := stream.Send(res); err != nil {
+			return err
+		}
+	}
+	endRes := a.buildChatCompletionStreamResponse(
+		resId,
+		"",
+		"stop",
+	)
+	err = stream.Send(endRes)
+	if err != nil {
+		return err
+	}
+
+	ansMeta := a.buildAnswerMetaResponse(resId, source, tokenCount)
+	err = stream.Send(ansMeta)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

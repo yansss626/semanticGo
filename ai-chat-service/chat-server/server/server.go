@@ -97,7 +97,7 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 			} else {
 				if answer != "" {
 					go func() {
-						err = app.textUpdate(textVector, texts[0], answer)
+						err := app.textUpdate(textVector, texts[0], answer)
 						if err != nil {
 							s.log.Error(err)
 						}
@@ -140,7 +140,11 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 	// kvstore
 	if cnf.Kvstore.Enabled {
 		go func() {
-			err = app.textUpdate(textVector, in.Message, resp.Choices[0].Message.Content)
+			err := app.textUpdate(textVector, in.Message, resp.Choices[0].Message.Content)
+			if err != nil {
+				s.log.Error(err)
+				return
+			}
 		}()
 	}
 	// redis 保存上下文
@@ -275,14 +279,18 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 			} else {
 				if answer != "" {
 					go func() {
-						err = app.textUpdate(textVector, texts[0], answer)
+						err := app.textUpdate(textVector, texts[0], answer)
 						if err != nil {
 							s.log.Error(err)
 						}
 
 					}()
-
-					err = app.replyStream(answer, stream)
+					savedTokens, err := app.estimateSavedTokens(in, answer)
+					if err != nil {
+						s.log.Error(err)
+						savedTokens = 0
+					}
+					err = app.replyStreamWithMeta(answer, AnswerSourceCache, savedTokens, stream)
 					if err != nil {
 						s.log.Error(err)
 						return err
@@ -360,9 +368,21 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 		return err
 	}
 
+	totalTokens := resultTokens + tokens
+	ansMeta := app.buildAnswerMetaResponse(resultID, AnswerSourcePublicModel, totalTokens)
+	err = stream.Send(ansMeta)
+	if err != nil {
+		s.log.Error(err)
+		return err
+	}
+
 	if cnf.Kvstore.Enabled {
 		go func() {
-			err = app.textUpdate(textVector, in.Message, resultMessage.Content)
+			err := app.textUpdate(textVector, in.Message, resultMessage.Content)
+			if err != nil {
+				s.log.Error(err)
+				return
+			}
 		}()
 	}
 	go func() {

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	ai_chat_service_proto "ai-chat-backend/services/ai-chat-service/proto"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	openai "github.com/sashabaranov/go-openai"
@@ -53,6 +54,7 @@ type ChatMessage struct {
 	Detail          *ai_chat_service_proto.ChatCompletionStreamResponse `json:"detail"`
 	TokenCount      int                                                 `json:"tokenCount"`
 	ParentMessageId string                                              `json:"parentMessageId"`
+	AnswerSource    string                                              `json:"answerSource,omitempty"`
 }
 
 func NewChatService(config *config.Config, log log.ILogger) (*ChatService, error) {
@@ -125,6 +127,7 @@ func (chat *ChatService) ChatProcess(ctx *gin.Context) {
 	firstChunk := true
 	ctx.Header("Content-type", "application/octet-stream")
 	for {
+		result.Delta = ""
 		rsp, err := stream.Recv()
 		if errors.Is(err, io.EOF) {
 			return
@@ -142,6 +145,11 @@ func (chat *ChatService) ChatProcess(ctx *gin.Context) {
 
 		if rsp.Id != "" {
 			result.ID = rsp.Id
+		}
+
+		if rsp.AnswerSource != "" {
+			result.AnswerSource = rsp.AnswerSource
+			result.TokenCount = int(rsp.TokenCount)
 		}
 
 		if len(rsp.Choices) > 0 {

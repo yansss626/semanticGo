@@ -55,6 +55,8 @@ message  ChatCompletionStreamResponse {
   int64 created = 3 [json_name = "created"];
   string model = 4 [json_name = "model"];
   repeated  ChatCompletionStreamChoice choices = 5 [json_name = "choices"];
+  string answerSource = 6 [json_name = "answer_source"];
+  int32 tokenCount = 7 [json_name = "token_count"];
 }
 message ChatCompletionStreamChoice {
   int32 index = 1[json_name = "index"];
