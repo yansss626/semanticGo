@@ -7,11 +7,6 @@ import (
 
 func (c *cacheLidis) Update(vector []float32, query string, answer string) error {
 
-	err := c.index.Add(query, vector)
-	if err != nil {
-		return err
-	}
-
 	cand := &index_algorithm.Candidate{
 		Query:  query,
 		Vector: vector,
@@ -24,6 +19,11 @@ func (c *cacheLidis) Update(vector []float32, query string, answer string) error
 	}
 
 	_, err = c.cache.Set(query, string(value))
+
+	err = c.index.Add(query, vector)
+	if err != nil {
+		return err
+	}
 
 	return err
 }

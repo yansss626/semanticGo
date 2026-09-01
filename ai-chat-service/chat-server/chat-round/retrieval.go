@@ -17,7 +17,8 @@ type cacheLidis struct {
 	k     int
 }
 
-func GetRoundObject(cache RoundCache) Round {
+func GetRoundObject(cache RoundCache, vectorIndex index_algorithm.VectorIndex) Round {
+
 	cnf := config.GetConfig()
 
 	//remote_rerank
@@ -32,18 +33,12 @@ func GetRoundObject(cache RoundCache) Round {
 		ScoreThreshold: cnf.Rerank.RerankScore,
 	}
 
-	// brute forve search
-	vectorIndex := &index_algorithm.BruteForceSearch{
-		Cache: cache,
-	}
-	//
-
 	return &cacheLidis{
 		cache: cache,
 		rank:  rerank,
 		k:     cnf.Rerank.TopK,
 		index: vectorIndex,
-	} // 待完善
+	}
 }
 
 func (c *cacheLidis) Retrieval(query string, vector []float32) (string, error) {

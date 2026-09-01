@@ -329,7 +329,9 @@ func (a *app) textRetrieval(text string, vector []float32) (string, error) {
 	}
 	defer cacheClient.Close()
 
-	round := chat_round.GetRoundObject(cacheClient)
+	vectorIndex := chat_round.GetVectorIndex()
+
+	round := chat_round.GetRoundObject(cacheClient, vectorIndex)
 
 	return round.Retrieval(text, vector)
 }
@@ -341,7 +343,8 @@ func (a *app) textUpdate(vector []float32, query string, answer string) error {
 	}
 	defer cacheClient.Close()
 
-	round := chat_round.GetRoundObject(cacheClient)
+	vectorIndex := chat_round.GetVectorIndex()
+	round := chat_round.GetRoundObject(cacheClient, vectorIndex)
 
 	return round.Update(vector, query, answer)
 }
