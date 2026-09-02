@@ -45,12 +45,13 @@ func (s hnswItemSurce) Equal(a, b hnswItem) bool {
 }
 
 type HNSWIndex struct {
-	grap      *hnsw.HNSW[hnswItem] // 图索引算法的具体实现：github.com/fogfish/hnsw
-	config    HNSWConfig           // 使用参数
-	mu        sync.RWMutex         // 读写锁，防止并发竞争,主要是为了防止修改map时的竞争
-	nextID    uint64               // 节点ID
-	queryToID map[string]uint64    // 问题-->ID 哈希映射
-	idToQuery map[uint64]string    // ID-->问题 哈希映射
+	grap       *hnsw.HNSW[hnswItem] // 图索引算法的具体实现：github.com/fogfish/hnsw
+	config     HNSWConfig           // 使用参数
+	mu         sync.RWMutex         // 读写锁，防止并发竞争,主要是为了防止修改map时的竞争
+	snapShotMu sync.RWMutex         // 读写锁，在保存索引的快照文件使用，保证快照文件中的信息是同一个时间点的状态
+	nextID     uint64               // 节点ID
+	queryToID  map[string]uint64    // 问题-->ID 哈希映射
+	idToQuery  map[uint64]string    // ID-->问题 哈希映射
 }
 
 func DefaultHNSWConfig(dim int) HNSWConfig {
@@ -103,7 +104,8 @@ func (h *HNSWIndex) Add(query string, Vector []float32) error {
 	}
 
 	vectorCopy := append([]float32(nil), Vector...)
-
+	h.snapShotMu.RLock()
+	defer h.snapShotMu.RUnlock()
 	h.mu.Lock()
 	id := h.nextID
 	h.nextID++
@@ -201,7 +203,8 @@ func (h *HNSWIndex) Delete(query string) error {
 	if query == "" {
 		return nil
 	}
-
+	h.snapShotMu.RLock()
+	defer h.snapShotMu.RUnlock()
 	h.mu.Lock()
 	defer h.mu.Unlock()
 

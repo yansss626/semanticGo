@@ -1,6 +1,7 @@
 package main
 
 import (
+	chat_round "ai-chat-service/chat-server/chat-round"
 	"ai-chat-service/chat-server/data"
 	metrics_app "ai-chat-service/chat-server/metrics-app"
 	metrics_bus "ai-chat-service/chat-server/metrics-bus"
@@ -17,6 +18,9 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
@@ -27,6 +31,8 @@ import (
 
 	"net"
 )
+
+const hnswIndexPath = "./chat-server/chat-round/index-algorithm/data/hnsw.snapshot"
 
 var (
 	configFile = flag.String("config", "dev.config.yaml", "")
@@ -68,6 +74,13 @@ func main() {
 	if cnf.Kvstore.Enabled {
 		kvstore.InitKvstorePool(cnf)
 	}
+	// 初始化向量索引
+	if cnf.Kvstore.Enabled {
+		err := chat_round.InitialVectorIndex(hnswIndexPath, cnf.Embedding.VectorDimensions)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
 
 	recordsData := data.NewChatRecordsData(mysql.GetDB())
 
@@ -82,7 +95,24 @@ func main() {
 	healthCheckSrv := health.NewServer()
 	grpc_health_v1.RegisterHealthServer(s, healthCheckSrv)
 
-	if err = s.Serve(lis); err != nil {
-		log.Fatal(err)
+	serverErr := make(chan error, 1)
+	go func() {
+		serverErr <- s.Serve(lis)
+	}()
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+
+	select {
+	case err := <-serverErr:
+		if err != nil {
+			log.Fatal(err)
+		}
+	case <-stop:
+		s.GracefulStop()
+		err := chat_round.SaveVectorIndex(hnswIndexPath)
+		if err != nil {
+			log.Error(err)
+		}
 	}
 }
