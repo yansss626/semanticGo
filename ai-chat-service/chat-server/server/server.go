@@ -11,13 +11,11 @@ import (
 	"ai-chat-service/services/tokenizer"
 	"context"
 	"encoding/json"
-	"io"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/golang/protobuf/jsonpb"
-	"github.com/sashabaranov/go-openai"
 )
 
 type chatService struct {
@@ -85,11 +83,17 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 		embeddingClient := app.getEmbeddingModel()
 		texts := []string{in.Message}
 		embeddingReq := app.buildEmbeddingRequest(texts)
-		embeddingResp, err := embeddingClient.CreateEmbeddings(context.Background(), embeddingReq)
+		embeddingResp, err := embeddingClient.Embeddings.New(context.Background(), embeddingReq)
 		if err != nil {
 			s.log.Error(err)
 		} else {
-			textVector = embeddingResp.Data[0].Embedding
+			embedding := embeddingResp.Data[0].Embedding
+
+			textVector = make([]float32, len(embedding))
+
+			for i, v := range embedding {
+				textVector[i] = float32(v)
+			}
 
 			answer, err := app.textRetrieval(texts[0], textVector)
 			if err != nil {
@@ -111,13 +115,13 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 		}
 	}
 
-	client := app.getOpenaiClient()
-	req, tokens, currTokens, currMessage, err := app.buildChatCompletionRequest(in, false)
+	client := app.getOpenaiClientV3()
+	params, tokens, currTokens, currMessage, err := app.buildChatCompletionRequestV3(in, false)
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
 	}
-	resp, err := client.CreateChatCompletion(ctx, req)
+	resp, err := client.Chat.Completions.New(ctx, params)
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
@@ -161,10 +165,13 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 			return
 		}
 		resContext := &chat_context.ChatMessage{
-			ID:      resp.ID,
-			PID:     reqContext.ID,
-			Message: resp.Choices[0].Message,
-			Tokens:  resp.Usage.CompletionTokens,
+			ID:  resp.ID,
+			PID: reqContext.ID,
+			Message: chat_context.ChatMessageContent{
+				Role:    ChatMessageRoleAssistant,
+				Content: resp.Choices[0].Message.Content,
+			},
+			Tokens: int(resp.Usage.CompletionTokens),
 		}
 		err = app.saveContext(resContext)
 		if err != nil {
@@ -180,7 +187,7 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 				UserMsgTokens:   currTokens,
 				UserMsgKeywords: keywords,
 				AIMsg:           resp.Choices[0].Message.Content,
-				AIMsgTokens:     resp.Usage.CompletionTokens,
+				AIMsgTokens:     int(resp.Usage.CompletionTokens),
 				ReqTokens:       tokens,
 				CreateAt:        time.Now().Unix(),
 			}
@@ -267,11 +274,17 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 		embeddingClient := app.getEmbeddingModel()
 		texts := []string{in.Message}
 		embeddingReq := app.buildEmbeddingRequest(texts)
-		embeddingResp, err := embeddingClient.CreateEmbeddings(context.Background(), embeddingReq)
+		embeddingResp, err := embeddingClient.Embeddings.New(context.Background(), embeddingReq)
 		if err != nil {
 			s.log.Error(err)
 		} else {
-			textVector = embeddingResp.Data[0].Embedding
+			embedding := embeddingResp.Data[0].Embedding
+
+			textVector = make([]float32, len(embedding))
+
+			for i, v := range embedding {
+				textVector[i] = float32(v)
+			}
 
 			answer, err := app.textRetrieval(texts[0], textVector)
 			if err != nil {
@@ -301,60 +314,52 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 		}
 	}
 
-	client := app.getOpenaiClient()
-	req, tokens, currTokens, currMessage, err := app.buildChatCompletionRequest(in, true)
+	client := app.getOpenaiClientV3()
+	params, tokens, currTokens, currMessage, err := app.buildChatCompletionRequestV3(in, true)
 	if err != nil {
 		s.log.Error(err)
 		return err
 	}
-	chatStream, err := client.CreateChatCompletionStream(stream.Context(), req)
-	if err != nil {
-		s.busMetrics.ErrQuestionsTotalCounter.Inc()
-		s.log.Error(err)
-		return err
-	}
+	chatStream := client.Chat.Completions.NewStreaming(stream.Context(), params)
 	defer chatStream.Close()
+
 	completionContent := ""
 	resultID := ""
-	for {
-		resp, err := chatStream.Recv()
-		if err != nil && err != io.EOF {
-			s.log.Error(err)
-			return err
-		}
-		if err == io.EOF {
-			break
-		}
+	for chatStream.Next() {
+		resp := chatStream.Current()
 		if len(resp.Choices) == 0 {
 			continue
 		}
 		if resultID == "" {
 			resultID = resp.ID
 		}
-		completionContent += resp.Choices[0].Delta.Content
+		content := resp.Choices[0].Delta.Content
+		completionContent += content
 		res := &proto.ChatCompletionStreamResponse{}
-		bytes, err := json.Marshal(resp)
-		if err != nil {
-			s.log.Error(err)
-			return err
-		}
-		// 允许 jsonpb 忽略未知字段
+		rawJson := resp.RawJSON()
 		unmarshaler := jsonpb.Unmarshaler{
 			AllowUnknownFields: true,
 		}
-		err = unmarshaler.Unmarshal(strings.NewReader(string(bytes)), res)
+		err = unmarshaler.Unmarshal(strings.NewReader(rawJson), res)
 		if err != nil {
 			s.log.Error(err)
 			return err
 		}
+
 		err = stream.Send(res)
 		if err != nil {
 			s.log.Error(err)
 			return err
 		}
 	}
-	resultMessage := openai.ChatCompletionMessage{
-		Role:    openai.ChatMessageRoleAssistant,
+	if err := chatStream.Err(); err != nil {
+		s.busMetrics.ErrQuestionsTotalCounter.Inc()
+		s.log.Error(err)
+		return err
+	}
+
+	resultMessage := chat_context.ChatMessageContent{
+		Role:    ChatMessageRoleAssistant,
 		Content: completionContent,
 	}
 	model := s.config.Chat.Model

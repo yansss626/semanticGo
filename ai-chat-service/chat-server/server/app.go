@@ -16,14 +16,19 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/sashabaranov/go-openai"
+	openai "github.com/openai/openai-go/v3"
+	"github.com/openai/openai-go/v3/option"
+	"github.com/openai/openai-go/v3/packages/param"
 )
 
 const ChatPrimedTokens = 2
 
 const (
-	AnswerSourcePublicModel = "public_model"
-	AnswerSourceCache       = "cache"
+	AnswerSourcePublicModel  = "public_model"
+	AnswerSourceCache        = "cache"
+	ChatMessageRoleSystem    = "system"
+	ChatMessageRoleUser      = "user"
+	ChatMessageRoleAssistant = "assistant"
 )
 
 type openaiConf struct {
@@ -113,87 +118,120 @@ func (s *chatService) newApp(in *proto.ChatCompletionRequest, contextCache chat_
 		contextCache: contextCache,
 	}
 }
-func (a *app) getOpenaiClient() *openai.Client {
-	accessToken := a.openaiConf.ApiKey
-	config := openai.DefaultConfig(accessToken)
-	config.BaseURL = a.openaiConf.BaseUrl
-	client := openai.NewClientWithConfig(config)
-	return client
+
+func (a *app) getOpenaiClientV3() openai.Client {
+	return openai.NewClient(option.WithAPIKey(a.openaiConf.ApiKey), option.WithBaseURL(a.openaiConf.BaseUrl))
 }
-func (a *app) buildChatCompletionRequest(in *proto.ChatCompletionRequest, stream bool) (req openai.ChatCompletionRequest, tokens, currTokens int, currMessage openai.ChatCompletionMessage, err error) {
-	//当前消息
-	currMessage = openai.ChatCompletionMessage{
-		Role:    openai.ChatMessageRoleUser,
+
+func (a *app) buildChatCompletionRequestV3(in *proto.ChatCompletionRequest, stream bool) (params openai.ChatCompletionNewParams, tokens, currTokens int, currMessage chat_context.ChatMessageContent, err error) {
+
+	currMessage = chat_context.ChatMessageContent{
+		Role:    ChatMessageRoleUser,
 		Content: in.Message,
 	}
-	req = openai.ChatCompletionRequest{
-		Model: a.openaiConf.Model,
-		Messages: []openai.ChatCompletionMessage{
-			currMessage,
-		},
-		MaxTokens:        a.openaiConf.MinResponseTokens,
-		Temperature:      a.openaiConf.Temperature,
-		TopP:             a.openaiConf.TopP,
-		PresencePenalty:  a.openaiConf.PresencePenalty,
-		FrequencyPenalty: a.openaiConf.FrequencyPenalty,
-		Stream:           stream,
-		ReasoningEffort:  a.openaiConf.ReasoningEffort,
-	}
-	contextList := make([]*chat_context.ChatMessage, 0)
+	var contextList []*chat_context.ChatMessage
 	if in.EnableContext {
-		//从缓存中获取上下文信息
 		contextList = a.getContext(in.Pid)
 	}
-	//重构req.Messages
-	tokens, currTokens, req.Messages, err = a.rebuildMessages(contextList, currMessage)
+	tokens, currTokens, messages, err := a.rebuildMessages(contextList, currMessage)
 	if err != nil {
-		a.log.Error(err)
 		return
 	}
-	req.MaxTokens = a.openaiConf.MaxTokens - tokens
+
+	openaiMessages := make([]openai.ChatCompletionMessageParamUnion, 0, len(messages))
+	for _, msg := range messages {
+
+		switch msg.Role {
+
+		case ChatMessageRoleSystem:
+			openaiMessages = append(
+				openaiMessages,
+				openai.SystemMessage(msg.Content),
+			)
+
+		case ChatMessageRoleAssistant:
+			openaiMessages = append(
+				openaiMessages,
+				openai.AssistantMessage(msg.Content),
+			)
+
+		default:
+			openaiMessages = append(
+				openaiMessages,
+				openai.UserMessage(msg.Content),
+			)
+		}
+	}
+
+	params = openai.ChatCompletionNewParams{
+		Model:            openai.ChatModel(a.openaiConf.Model),
+		Messages:         openaiMessages,
+		MaxTokens:        openai.Int(int64(a.openaiConf.MaxTokens)),
+		Temperature:      openai.Float(float64(a.openaiConf.Temperature)),
+		TopP:             openai.Float(float64(a.openaiConf.TopP)),
+		PresencePenalty:  openai.Float(float64(a.openaiConf.PresencePenalty)),
+		FrequencyPenalty: openai.Float(float64(a.openaiConf.FrequencyPenalty)),
+		ReasoningEffort:  openai.ReasoningEffort(a.openaiConf.ReasoningEffort),
+	}
+
+	params.SetExtraFields(map[string]any{
+		"thinking": map[string]any{
+			"type": "disabled",
+		},
+	})
+
 	return
 }
-func (a *app) rebuildMessages(contextList []*chat_context.ChatMessage, currMessage openai.ChatCompletionMessage) (tokens, currTokens int, messages []openai.ChatCompletionMessage, err error) {
-	var sysMessage openai.ChatCompletionMessage
-	botTokens := 0
-	if a.openaiConf.BotDesc != "" {
-		sysMessage = openai.ChatCompletionMessage{
-			Role:    openai.ChatMessageRoleSystem,
-			Content: a.openaiConf.BotDesc,
-		}
-		botTokens, err = tokenizer.GetTokens(&sysMessage, a.openaiConf.Model)
-		if err != nil {
-			a.log.Error(err)
-			return
-		}
-	}
-	messages = []openai.ChatCompletionMessage{currMessage}
+
+func (a *app) rebuildMessages(contextList []*chat_context.ChatMessage, currMessage chat_context.ChatMessageContent) (tokens, currTokens int, messages []chat_context.ChatMessageContent, err error) {
+
+	// 用户 prompt
+	messages = []chat_context.ChatMessageContent{currMessage}
 	currTokens, err = tokenizer.GetTokens(&currMessage, a.openaiConf.Model)
 	if err != nil {
-		a.log.Error(err)
 		return
 	}
-	if currTokens > a.openaiConf.MaxTokens-a.openaiConf.MinResponseTokens-botTokens-ChatPrimedTokens {
-		err = zerror.NewByMsg("请求消息超限")
-		a.log.Error(err)
-		return
-	}
-	tokens = currTokens + botTokens + ChatPrimedTokens
-	if contextList != nil {
-		for _, item := range contextList {
-			if tokens+item.Tokens+ChatPrimedTokens > a.openaiConf.MaxTokens-a.openaiConf.MinResponseTokens {
-				break
-			}
-			messages = append(messages, item.Message)
-			tokens += item.Tokens + ChatPrimedTokens
+	tokens += currTokens
+
+	// 历史上下文
+	for _, item := range contextList {
+		if item == nil {
+			continue
 		}
+		if tokens+
+			item.Tokens+ChatPrimedTokens > a.openaiConf.MaxTokens-a.openaiConf.MinResponseTokens {
+			break
+		}
+		messages = append(messages, item.Message)
+		tokens += item.Tokens + ChatPrimedTokens
 	}
+
 	for i, j := 0, len(messages)-1; i < j; i, j = i+1, j-1 {
 		messages[i], messages[j] = messages[j], messages[i]
 	}
-	if botTokens > 0 {
-		messages = append([]openai.ChatCompletionMessage{sysMessage}, messages...)
+
+	// 系统 prompt
+
+	if a.openaiConf.BotDesc != "" {
+		sysMessage := chat_context.ChatMessageContent{
+			Role:    ChatMessageRoleSystem,
+			Content: a.openaiConf.BotDesc,
+		}
+		messages = append([]chat_context.ChatMessageContent{sysMessage}, messages...)
+		sysTokens, err := tokenizer.GetTokens(&sysMessage, a.openaiConf.Model)
+		if err != nil {
+			return 0, 0, nil, err
+		}
+		tokens += sysTokens
 	}
+
+	remainTokens := a.openaiConf.MaxTokens - tokens
+	if remainTokens < a.openaiConf.MinResponseTokens {
+		err = zerror.NewByMsg("请求消息超限")
+		return
+
+	}
+
 	return
 }
 func (a *app) buildChatCompletionResponse(msg string) *proto.ChatCompletionResponse {
@@ -205,7 +243,7 @@ func (a *app) buildChatCompletionResponse(msg string) *proto.ChatCompletionRespo
 		Choices: []*proto.ChatCompletionChoice{
 			{
 				Message: &proto.ChatCompletionMessage{
-					Role:    openai.ChatMessageRoleAssistant,
+					Role:    ChatMessageRoleAssistant,
 					Content: msg,
 				},
 				FinishReason: "stop",
@@ -231,7 +269,7 @@ func (a *app) buildChatCompletionStreamResponse(id, delta, finishReason string) 
 				Index: 0,
 				Delta: &proto.ChatCompletionStreamChoiceDelta{
 					Content: delta,
-					Role:    openai.ChatMessageRoleAssistant,
+					Role:    ChatMessageRoleAssistant,
 				},
 				FinishReason: finishReason,
 			},
@@ -355,31 +393,29 @@ func (a *app) textUpdate(vector []float32, query string, answer string) error {
 	return round.Update(vector, query, answer)
 }
 
-func (a *app) getEmbeddingModel() *openai.Client {
-	accessToken := a.openaiConf.EmbeddingApiKey
-	config := openai.DefaultConfig(accessToken)
-	config.BaseURL = a.openaiConf.EmbeddingBaseUrl
-	client := openai.NewClientWithConfig(config)
-	return client
+func (a *app) getEmbeddingModel() openai.Client {
+	return openai.NewClient(option.WithAPIKey(a.openaiConf.EmbeddingApiKey), option.WithBaseURL(a.openaiConf.EmbeddingBaseUrl))
 }
 
-func (a *app) buildEmbeddingRequest(texts []string) *openai.EmbeddingRequest {
-	return &openai.EmbeddingRequest{
-		Input:      texts,
+func (a *app) buildEmbeddingRequest(texts []string) openai.EmbeddingNewParams {
+	return openai.EmbeddingNewParams{
+		Input: openai.EmbeddingNewParamsInputUnion{
+			OfArrayOfStrings: texts,
+		},
 		Model:      openai.EmbeddingModel(a.openaiConf.EmbeddingModel),
-		Dimensions: a.openaiConf.EmbeddingVectorDimensions,
+		Dimensions: param.NewOpt(int64(a.openaiConf.EmbeddingVectorDimensions)),
 	}
 }
 
 func (a *app) estimateSavedTokens(in *proto.ChatCompletionRequest, answer string) (int, error) {
 
-	_, promptTokens, _, _, err := a.buildChatCompletionRequest(in, true)
+	_, tokens, _, _, err := a.buildChatCompletionRequestV3(in, true)
 	if err != nil {
 		return 0, err
 	}
 
-	answerMessage := openai.ChatCompletionMessage{
-		Role:    openai.ChatMessageRoleAssistant,
+	answerMessage := chat_context.ChatMessageContent{
+		Role:    ChatMessageRoleAssistant,
 		Content: answer,
 	}
 
@@ -388,7 +424,7 @@ func (a *app) estimateSavedTokens(in *proto.ChatCompletionRequest, answer string
 		return 0, err
 	}
 
-	return promptTokens + answerTokens, nil
+	return tokens + answerTokens, nil
 }
 
 func (a *app) replyStream(message string, stream proto.Chat_ChatCompletionStreamServer) error {

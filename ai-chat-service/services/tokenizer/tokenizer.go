@@ -1,6 +1,7 @@
 package tokenizer
 
 import (
+	chat_context "ai-chat-service/chat-server/chat-context"
 	"ai-chat-service/pkg/config"
 	"bytes"
 	"encoding/json"
@@ -8,8 +9,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-
-	"github.com/sashabaranov/go-openai"
 )
 
 type tokensInfo struct {
@@ -20,7 +19,7 @@ type tokensInfo struct {
 
 var httpClient = &http.Client{}
 
-func GetTokens(message *openai.ChatCompletionMessage, model string) (int, error) {
+func GetTokens(message *chat_context.ChatMessageContent, model string) (int, error) {
 	cnf := config.GetConfig()
 	url := fmt.Sprintf("%s/tokenizer/%s", cnf.DependOn.Tokenizer.Address, model)
 	info := &tokensInfo{}

@@ -1,6 +1,9 @@
 package chat_context
 
-import "github.com/sashabaranov/go-openai"
+type ChatMessageContent struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
 
 type ChatMessage struct {
 	//当前记录ID
@@ -8,7 +11,7 @@ type ChatMessage struct {
 	//上一条记录ID
 	PID string `json:"pid,omitempty"`
 	//消息内容
-	Message openai.ChatCompletionMessage `json:"message"`
+	Message ChatMessageContent `json:"message"`
 	//该消息tokens数
 	Tokens int `json:"tokens,omitempty"`
 }
