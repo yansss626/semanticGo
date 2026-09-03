@@ -36,6 +36,8 @@ chat:
   context_ttl: 1800
   # 上下文消息条数
   context_len: 4
+  # 控制思考模式与非思考模式的转换：如果设为 enabled，则使用思考模式。如果设为 disabled，则使用非思考模式
+  thinking_type: disabled
   #控制模型的推理强度[low, high, max]
   reasoning_effort: low
 redis:

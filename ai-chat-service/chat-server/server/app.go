@@ -46,6 +46,7 @@ type openaiConf struct {
 	ContextTTL        int
 	ContextLen        int
 	MinResponseTokens int
+	ThinkingType      string
 	ReasoningEffort   string
 	// Embedding Model
 	EmbeddingApiKey           string
@@ -74,6 +75,7 @@ func (s *chatService) newApp(in *proto.ChatCompletionRequest, contextCache chat_
 		ContextTTL:        s.config.Chat.ContextTTL,
 		ContextLen:        s.config.Chat.ContextLen,
 		MinResponseTokens: s.config.Chat.MinResponseTokens,
+		ThinkingType:      s.config.Chat.ThinkingType,
 		ReasoningEffort:   s.config.Chat.ReasoningEffort,
 
 		EmbeddingApiKey:           s.config.Embedding.ApiKey,
@@ -183,7 +185,7 @@ func (a *app) buildChatCompletionRequestV3(in *proto.ChatCompletionRequest, stre
 
 	params.SetExtraFields(map[string]any{
 		"thinking": map[string]any{
-			"type": "disabled",
+			"type": a.openaiConf.ThinkingType,
 		},
 	})
 
