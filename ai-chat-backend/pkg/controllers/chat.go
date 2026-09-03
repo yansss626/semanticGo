@@ -16,8 +16,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	openai "github.com/sashabaranov/go-openai"
 	"k8s.io/klog/v2"
+)
+
+const (
+	ChatMessageRoleSystem    = "system"
+	ChatMessageRoleUser      = "user"
+	ChatMessageRoleAssistant = "assistant"
 )
 
 type ChatService struct {
@@ -80,7 +85,7 @@ func (chat *ChatService) ChatProcess(ctx *gin.Context) {
 
 	result := ChatMessage{
 		ID:              uuid.New().String(),
-		Role:            openai.ChatMessageRoleAssistant,
+		Role:            ChatMessageRoleAssistant,
 		Text:            "",
 		ParentMessageId: messageID,
 	}
