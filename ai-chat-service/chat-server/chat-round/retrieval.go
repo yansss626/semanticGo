@@ -1,6 +1,7 @@
 package chat_round
 
 import (
+	"ai-chat-service/chat-server/chat-round/embedding"
 	index_algorithm "ai-chat-service/chat-server/chat-round/index-algorithm"
 	"ai-chat-service/chat-server/chat-round/reranker"
 	"ai-chat-service/pkg/config"
@@ -38,6 +39,20 @@ func GetRoundObject(cache RoundCache, vectorIndex index_algorithm.VectorIndex) R
 		rank:  rerank,
 		k:     cnf.Rerank.TopK,
 		index: vectorIndex,
+	}
+}
+
+func GetEmbeddingObject() embedding.EmbeddingObject {
+	cnf := config.GetConfig()
+
+	return &embedding.Qwen3TextEmbedding{
+		Model:   cnf.Embedding.Model,
+		ApiKey:  cnf.Embedding.ApiKey,
+		BaseUrl: cnf.Embedding.BaseUrl,
+		Dim:     cnf.Embedding.VectorDimensions,
+		Client: &http.Client{
+			Timeout: 5 * time.Second,
+		},
 	}
 }
 

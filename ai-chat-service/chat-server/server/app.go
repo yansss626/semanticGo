@@ -3,6 +3,7 @@ package server
 import (
 	chat_context "ai-chat-service/chat-server/chat-context"
 	chat_round "ai-chat-service/chat-server/chat-round"
+	"ai-chat-service/chat-server/chat-round/embedding"
 	"ai-chat-service/pkg/config"
 	"ai-chat-service/pkg/log"
 	"ai-chat-service/pkg/zerror"
@@ -121,6 +122,12 @@ func (s *chatService) newApp(in *proto.ChatCompletionRequest, contextCache chat_
 
 func (a *app) getOpenaiClientV3() openai.Client {
 	return openai.NewClient(option.WithAPIKey(a.openaiConf.ApiKey), option.WithBaseURL(a.openaiConf.BaseUrl))
+}
+
+func (a *app) getEmbeddingResponse(texts []string) (*embedding.EmbeddingResponse, error) {
+
+	client := chat_round.GetEmbeddingObject()
+	return client.Get(texts)
 }
 
 func (a *app) buildChatCompletionRequestV3(in *proto.ChatCompletionRequest, stream bool) (params openai.ChatCompletionNewParams, tokens, currTokens int, currMessage chat_context.ChatMessageContent, err error) {

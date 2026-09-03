@@ -80,21 +80,12 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 	// 相似文本检索
 	var textVector []float32
 	if cnf.Kvstore.Enabled {
-		embeddingClient := app.getEmbeddingModel()
 		texts := []string{in.Message}
-		embeddingReq := app.buildEmbeddingRequest(texts)
-		embeddingResp, err := embeddingClient.Embeddings.New(context.Background(), embeddingReq)
+		embeddingResp, err := app.getEmbeddingResponse(texts)
 		if err != nil {
 			s.log.Error(err)
 		} else {
-			embedding := embeddingResp.Data[0].Embedding
-
-			textVector = make([]float32, len(embedding))
-
-			for i, v := range embedding {
-				textVector[i] = float32(v)
-			}
-
+			textVector = embeddingResp.Data[0].Embedding
 			answer, err := app.textRetrieval(texts[0], textVector)
 			if err != nil {
 				s.log.Error(err)
@@ -271,21 +262,13 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 	// 相似文本检索
 	var textVector []float32
 	if cnf.Kvstore.Enabled {
-		embeddingClient := app.getEmbeddingModel()
+
 		texts := []string{in.Message}
-		embeddingReq := app.buildEmbeddingRequest(texts)
-		embeddingResp, err := embeddingClient.Embeddings.New(context.Background(), embeddingReq)
+		embeddingResp, err := app.getEmbeddingResponse(texts)
 		if err != nil {
 			s.log.Error(err)
 		} else {
-			embedding := embeddingResp.Data[0].Embedding
-
-			textVector = make([]float32, len(embedding))
-
-			for i, v := range embedding {
-				textVector[i] = float32(v)
-			}
-
+			textVector = embeddingResp.Data[0].Embedding
 			answer, err := app.textRetrieval(texts[0], textVector)
 			if err != nil {
 				s.log.Error(err)
