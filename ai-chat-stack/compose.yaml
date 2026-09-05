@@ -1,7 +1,7 @@
 version: "3.8"
 services:
   tokenizer:
-    image: 192.168.239.161:5000/2404/tokenizer:1.0.0
+    image: tokenizer:1.0.0
     environment:
       PORT: 3002
     deploy:
@@ -13,7 +13,7 @@ services:
         order: start-first
     command: ["sh","-c","nuxt --port 3002 --module tokenizer.py --workers 2"]
   keywords:
-    image: 192.168.239.161:5000/2404/keywords-filter:1.0.0
+    image: keywords-filter:1.0.0
     deploy:
       mode: replicated
       replicas: 2
@@ -31,12 +31,12 @@ services:
       retries: 3
       start_period: 1s
     configs:
-      - source: 2404-keywords-conf
+      - source: keywords-conf
         target: /app/config.yaml
-      - source: 2404-keywords-dict
+      - source: keywords-dict
         target: /app/dict.txt
   sensitive:
-    image: 192.168.239.161:5000/2404/keywords-filter:1.0.0
+    image: keywords-filter:1.0.0
     deploy:
       mode: replicated
       replicas: 2
@@ -56,12 +56,12 @@ services:
       retries: 3
       start_period: 1s
     configs:
-      - source: 2404-sensitive-conf
+      - source: sensitive-conf
         target: /app/config.yaml
-      - source: 2404-sensitive-dict
+      - source: sensitive-dict
         target: /app/dict.txt
   ai-chat-service:
-    image: 192.168.239.161:5000/2404/ai-chat-service:1.0.0
+    image: ai-chat-service:1.0.0
     deploy:
       mode: replicated
       replicas: 2
@@ -81,10 +81,10 @@ services:
       retries: 3
       start_period: 1s
     configs:
-      - source: 2404-ai-chat-service-conf
+      - source: ai-chat-service-conf
         target: /app/config.yaml
   ai-chat-backend:
-    image: 192.168.239.161:5000/2404/ai-chat-backend:1.0.0
+    image: ai-chat-backend:1.0.0
     ports:
       - "7080:80"
     deploy:
@@ -106,18 +106,18 @@ services:
       retries: 3
       start_period: 1s
     configs:
-      - source: 2404-ai-chat-backend-conf
+      - source: ai-chat-backend-conf
         target: /app/config.yaml
 configs:
-  2404-keywords-conf:
+  keywords-conf:
     file: ./configs/keywords.yaml
-  2404-keywords-dict:
+  keywords-dict:
     file: ./configs/keywords-dict.txt
-  2404-sensitive-conf:
+  sensitive-conf:
     file: ./configs/sensitive.yaml
-  2404-sensitive-dict:
+  sensitive-dict:
     file: ./configs/sensitive-dict.txt
-  2404-ai-chat-service-conf:
+  ai-chat-service-conf:
     file: ./configs/ai-chat-service.yaml
-  2404-ai-chat-backend-conf:
+  ai-chat-backend-conf:
     file: ./configs/ai-chat-backend.yaml
