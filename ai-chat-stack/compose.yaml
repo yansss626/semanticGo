@@ -11,7 +11,7 @@ services:
       update_config:
         parallelism: 2
         order: start-first
-    command: ["sh","-c","nuxt --port 3002 --module tokenizer.py --workers 2"]
+    command: ["sh","-c","nuxt --port 3002 --module deepseek_tokenizer.py --workers 2"]
   keywords:
     image: keywords-filter:1.0.0
     deploy:
