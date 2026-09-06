@@ -9,7 +9,6 @@ FROM quay.io/0voice/alpine:3.18 as stage1
 # RUN apk update && apk add curl
 ADD ./curl-amd64 /usr/bin/curl
 RUN chmod +x /usr/bin/curl
-MAINTAINER nick
 WORKDIR /app/
 ADD ./dev.config.yaml /app/config.yaml
 COPY --from=stage0 /src/mock-openai-api/mock-openai-api ./
