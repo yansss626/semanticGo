@@ -54,6 +54,7 @@ var intentRules = []IntentRule{
 			"学习",
 			"讲解",
 			"概述",
+			"啥",
 		},
 	},
 
