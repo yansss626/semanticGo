@@ -3,12 +3,12 @@ package chat_round
 import (
 	"ai-chat-service/chat-server/chat-round/embedding"
 	index_algorithm "ai-chat-service/chat-server/chat-round/index-algorithm"
-	query_mata "ai-chat-service/chat-server/chat-round/query-mata"
 	"ai-chat-service/chat-server/chat-round/reranker"
 	"ai-chat-service/pkg/config"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -72,11 +72,7 @@ func (c *cacheLidis) Retrieval(query string, vector []float32) (string, error) {
 		return "", nil
 	}
 
-	queryMeta := query_mata.ExtractQueryMeta(query)
-	bestResultsMeta := query_mata.ExtractQueryMeta(bestResults.Query)
-	if !query_mata.MatchTwoMeta(queryMeta, bestResultsMeta) {
-		return "", nil
-	}
+	saveCacheHitLog(query, bestResults.Query)
 
 	value, err := c.cache.Get(bestResults.Query)
 	if err != nil {
@@ -94,4 +90,18 @@ func (c *cacheLidis) Retrieval(query string, vector []float32) (string, error) {
 	}
 
 	return cand.Answer, nil
+}
+
+func saveCacheHitLog(query string, cacheQuery string) {
+
+	file, err := os.OpenFile("cachehit.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return
+	}
+	defer file.Close()
+
+	log := fmt.Sprintf("User Query: %s\nCache Query: %s\n--------------------\n", query, cacheQuery)
+
+	file.WriteString(log)
+
 }
