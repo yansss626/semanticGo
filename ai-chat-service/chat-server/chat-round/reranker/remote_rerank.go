@@ -102,6 +102,9 @@ func (a *AlibabaRerank) ReRank(query string, results []*index_algorithm.SearchRe
 	documents := make([]string, len(results))
 	for i := 0; i < len(results); i++ {
 		documents[i] = results[i].Query
+		if results[i].Score == 1 {
+			return results[i], nil
+		}
 	}
 
 	reqBody := a.BuildingRequest(query, documents)
