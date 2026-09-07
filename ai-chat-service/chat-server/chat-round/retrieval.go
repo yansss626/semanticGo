@@ -3,6 +3,7 @@ package chat_round
 import (
 	"ai-chat-service/chat-server/chat-round/embedding"
 	index_algorithm "ai-chat-service/chat-server/chat-round/index-algorithm"
+	query_mata "ai-chat-service/chat-server/chat-round/query-mata"
 	"ai-chat-service/chat-server/chat-round/reranker"
 	"ai-chat-service/pkg/config"
 	"encoding/json"
@@ -68,6 +69,12 @@ func (c *cacheLidis) Retrieval(query string, vector []float32) (string, error) {
 	}
 
 	if bestResults == nil {
+		return "", nil
+	}
+
+	queryMeta := query_mata.ExtractQueryMeta(query)
+	bestResultsMeta := query_mata.ExtractQueryMeta(bestResults.Query)
+	if !query_mata.MatchTwoMeta(queryMeta, bestResultsMeta) {
 		return "", nil
 	}
 
