@@ -70,7 +70,7 @@ func (l *LocalRerank) SendingRequest(reqBody *LocalRerankRequest) (*LocalRerankR
 	return result, nil
 }
 
-func (l *LocalRerank) ReRank(query string, results []*index_algorithm.SearchResult) (*index_algorithm.SearchResult, error) {
+func (l *LocalRerank) ReRank(query string, results []*index_algorithm.SemanticCacheRecallResult) (*index_algorithm.SemanticCacheRecallResult, error) {
 	if query == "" || len(results) == 0 {
 		return nil, nil
 	}

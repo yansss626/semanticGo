@@ -134,7 +134,7 @@ func (h *HNSWIndex) Add(query string, Vector []float32) error {
 	return nil
 }
 
-func (h *HNSWIndex) SearchK(Vector []float32, k int) ([]*SearchResult, error) {
+func (h *HNSWIndex) SearchK(Vector []float32, k int) ([]*SemanticCacheRecallResult, error) {
 
 	if err := h.validateVector(Vector); err != nil {
 		return nil, err
@@ -169,7 +169,7 @@ func (h *HNSWIndex) SearchK(Vector []float32, k int) ([]*SearchResult, error) {
 		efSearch,
 	)
 
-	results := make([]*SearchResult, 0, k)
+	results := make([]*SemanticCacheRecallResult, 0, k)
 	for _, neighbour := range neighbours {
 		h.mu.RLock()
 		query, active := h.idToQuery[neighbour.ID]
@@ -179,7 +179,7 @@ func (h *HNSWIndex) SearchK(Vector []float32, k int) ([]*SearchResult, error) {
 			continue
 		}
 
-		result := &SearchResult{
+		result := &SemanticCacheRecallResult{
 			Query: query,
 			Score: CosineSimilarity(Vector, neighbour.Vector),
 		}

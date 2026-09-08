@@ -2,14 +2,14 @@ package index_algorithm
 
 import "math"
 
-type SearchResult struct {
+type SemanticCacheRecallResult struct {
 	Query string
 	Score float64
 }
 
 type VectorIndex interface {
 	Add(query string, vector []float32) error
-	SearchK(vector []float32, k int) ([]*SearchResult, error)
+	SearchK(vector []float32, k int) ([]*SemanticCacheRecallResult, error)
 	Delete(query string) error
 }
 

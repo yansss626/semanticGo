@@ -93,7 +93,7 @@ func (a *AlibabaRerank) SendingRequest(reqBody *Qwen3RerankRequest) (*Qwen3Reran
 	return rerankResp, nil
 }
 
-func (a *AlibabaRerank) ReRank(query string, results []*index_algorithm.SearchResult) (*index_algorithm.SearchResult, error) {
+func (a *AlibabaRerank) ReRank(query string, results []*index_algorithm.SemanticCacheRecallResult) (*index_algorithm.SemanticCacheRecallResult, error) {
 
 	if len(results) == 0 {
 		return nil, nil
