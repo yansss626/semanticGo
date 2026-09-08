@@ -12,29 +12,6 @@ services:
         parallelism: 2
         order: start-first
     command: ["sh","-c","nuxt --port 3002 --module deepseek_tokenizer.py --workers 2"]
-  keywords:
-    image: keywords-filter:1.0.0
-    deploy:
-      mode: replicated
-      replicas: 2
-      endpoint_mode: vip
-      update_config:
-        parallelism: 2
-        order: start-first
-      rollback_config:
-        parallelism: 2
-        order: start-first
-    healthcheck:
-      test: ["CMD","grpc_health_probe","-addr=:50051"]
-      interval: 5s
-      timeout: 1s
-      retries: 3
-      start_period: 1s
-    configs:
-      - source: keywords-conf
-        target: /app/config.yaml
-      - source: keywords-dict
-        target: /app/dict.txt
   sensitive:
     image: keywords-filter:1.0.0
     deploy:

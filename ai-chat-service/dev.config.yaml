@@ -57,40 +57,12 @@ kvstore:
   idle_timeout: 6000
   # 选择是否开启 kvstore
   enabled: true
-mysql:
-  dsn: "root:123456@tcp(192.168.239.161:3306)/ai_chat?collation=utf8mb4_unicode_ci&charset=utf8mb4"
-  maxLifeTime: 3600
-  maxOpenConn: 10
-  maxIdleConn: 10
-  # 选择是否开启 mysql
-  enabled: false
 dependOn:
   sensitive:
     address: "localhost:50053"
     accessToken: "ang1chubdev1ozhome256487d22sapguuv1ozhom"
-  keywords:
-    address: "localhost:50054"
-    accessToken: "ang1chubdev1ozhome256487d22sapguuv1ozhom"
   tokenizer:
     address: "http://192.168.184.138:3002"
-vectorDB:
-  # 访问地址
-  url: "http://lb-4u4r1fk4-1ys6gv3rpmdan420.clb.ap-guangzhou.tencentclb.com:60000"
-  # 用户名
-  username: "root"
-  # 密码
-  pwd: "YaUfVueWZJ20e4ghyLlBT8Dou5OapwpFTUq50oft"
-  database: "ai-chat"
-  # 请求超时时长s
-  timeout: 5
-  # 最大空闲连接数
-  maxIdleConnPerHost: 2
-  # 读一致性： strongConsistency(强一致性)，eventualConsistency(最终一致性)
-  readConsistency: "eventualConsistency"
-  # 空闲连接超时时长s
-  idleConnTimeout: 60
-  # 选择是否开启 vectorDB
-  enabled: false
 Embedding: # Embedding 模型，将问题文本转化为数字向量
   api_key: "sk-ws-H.EHMRRDL.G7qC.MEYCIQDxxspnatsngz5745n4-PHFyd-RNN9qkEtP0qqgyN7q-AIhALORmoklQ_D169zkMFO55Ri-yiXor2OmtC616Cnpp6Ar"
   base_url: "https://ws-7wl00bp88ie0ya61.cn-beijing.maas.aliyuncs.com/compatible-mode/v1/embeddings" 
