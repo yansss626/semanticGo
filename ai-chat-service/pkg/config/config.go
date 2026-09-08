@@ -32,13 +32,6 @@ type Config struct {
 		ThinkingType      string  `mapstructure:"thinking_type"`
 		ReasoningEffort   string  `mapstructure:"reasoning_effort"`
 	}
-	Mysql struct {
-		DSN         string
-		MaxLifeTime int
-		MaxOpenConn int
-		MaxIdleConn int
-		Enabled     bool
-	}
 	Redis struct {
 		Host string
 		Port int
@@ -58,24 +51,9 @@ type Config struct {
 			Address     string
 			AccessToken string
 		}
-		Keywords struct {
-			Address     string
-			AccessToken string
-		}
 		Tokenizer struct {
 			Address string
 		}
-	}
-	VectorDB struct {
-		Url                string
-		Username           string
-		Pwd                string
-		Database           string
-		Timeout            int
-		MaxIdleConnPerHost int
-		ReadConsistency    string
-		IdleConnTimeout    int
-		Enabled            bool
 	}
 	Embedding struct {
 		ApiKey           string  `mapstructure:"api_key"`
