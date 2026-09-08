@@ -2,17 +2,13 @@ package main
 
 import (
 	chat_round "ai-chat-service/chat-server/chat-round"
-	"ai-chat-service/chat-server/data"
 	metrics_app "ai-chat-service/chat-server/metrics-app"
 	metrics_bus "ai-chat-service/chat-server/metrics-bus"
 	"ai-chat-service/chat-server/server"
-	vector_data "ai-chat-service/chat-server/vector-data"
 	"ai-chat-service/interceptor"
 	"ai-chat-service/pkg/config"
 	"ai-chat-service/pkg/db/kvstore"
-	"ai-chat-service/pkg/db/mysql"
 	"ai-chat-service/pkg/db/redis"
-	"ai-chat-service/pkg/db/vector"
 	"ai-chat-service/pkg/log"
 	"ai-chat-service/proto"
 	"flag"
@@ -60,16 +56,8 @@ func main() {
 	logger.SetOutput(log.GetRotateWriter(cnf.Log.LogPath))
 	logger.SetPrintCaller(true)
 
-	// 初始化Mysql
-	if cnf.Mysql.Enabled {
-		mysql.InitMysql(cnf)
-	}
 	// 初始化redis
 	redis.InitRedisPool(cnf)
-	// 初始化向量数据库
-	if cnf.VectorDB.Enabled {
-		vector.InitDB(cnf)
-	}
 	// 初始化kvstore
 	if cnf.Kvstore.Enabled {
 		kvstore.InitKvstorePool(cnf)
@@ -82,14 +70,12 @@ func main() {
 		}
 	}
 
-	recordsData := data.NewChatRecordsData(mysql.GetDB())
-
 	lis, err := net.Listen("tcp", fmt.Sprintf("%s:%d", cnf.Server.IP, cnf.Server.Port))
 	if err != nil {
 		log.Fatal(err)
 	}
 	s := grpc.NewServer(grpc.UnaryInterceptor(interceptor.UnaryAuthInterceptor), grpc.StreamInterceptor(metrics_app.NewStreamMiddleware(registry).WrapHandler()))
-	service := server.NewChatService(recordsData, vector_data.NewChatRecordsData(cnf, vector.GetVdb()), cnf, logger, busMetrics)
+	service := server.NewChatService(cnf, logger, busMetrics)
 	proto.RegisterChatServer(s, service)
 
 	healthCheckSrv := health.NewServer()

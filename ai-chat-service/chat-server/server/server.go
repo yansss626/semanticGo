@@ -2,18 +2,14 @@ package server
 
 import (
 	chat_context "ai-chat-service/chat-server/chat-context"
-	"ai-chat-service/chat-server/data"
 	metrics_bus "ai-chat-service/chat-server/metrics-bus"
-	vector_data "ai-chat-service/chat-server/vector-data"
 	"ai-chat-service/pkg/config"
 	"ai-chat-service/pkg/log"
 	"ai-chat-service/proto"
 	"ai-chat-service/services/tokenizer"
 	"context"
 	"encoding/json"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/golang/protobuf/jsonpb"
 )
@@ -22,23 +18,18 @@ type chatService struct {
 	proto.UnimplementedChatServer
 	config     *config.Config
 	log        log.ILogger
-	data       data.IChatRecordsData
-	vectorData vector_data.IChatRecordsData
 	busMetrics *metrics_bus.BusMetrics
 }
 
-func NewChatService(data data.IChatRecordsData, vectorData vector_data.IChatRecordsData, config *config.Config, log log.ILogger, busMetrics *metrics_bus.BusMetrics) proto.ChatServer {
+func NewChatService(config *config.Config, log log.ILogger, busMetrics *metrics_bus.BusMetrics) proto.ChatServer {
 	return &chatService{
 		config:     config,
 		log:        log,
-		data:       data,
-		vectorData: vectorData,
 		busMetrics: busMetrics,
 	}
 }
 
 func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompletionRequest) (*proto.ChatCompletionResponse, error) {
-	cnf := config.GetConfig()
 
 	redisContextCache := chat_context.NewRedisCache()
 	defer redisContextCache.Close()
@@ -55,31 +46,9 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 		return res, nil
 	}
 
-	//关键词提取
-	keywords := app.keywords(in)
-	if len(keywords) > 0 && cnf.Mysql.Enabled && cnf.VectorDB.Enabled {
-		idStr, score, err := s.vectorData.QueryData(context.Background(), map[string][]string{"keywords": {strings.Join(keywords, ",")}})
-		if err != nil {
-			s.log.Error(err)
-		} else if score > 0.99 {
-			id, err := strconv.ParseInt(idStr, 10, 64)
-			if err != nil {
-				s.log.Error(err)
-			} else {
-				record, err := s.data.GetById(id)
-				if err != nil {
-					s.log.Error(err)
-				} else {
-					res := app.buildChatCompletionResponse(record.AIMsg)
-					return res, nil
-				}
-			}
-		}
-	}
-
 	// 相似文本检索
 	var textVector []float32
-	if cnf.Kvstore.Enabled {
+	if s.config.Kvstore.Enabled {
 		texts := []string{in.Message}
 		embeddingResp, err := app.getEmbeddingResponse(texts)
 		if err != nil {
@@ -107,7 +76,7 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 	}
 
 	client := app.getOpenaiClientV3()
-	params, tokens, currTokens, currMessage, err := app.buildChatCompletionRequestV3(in, false)
+	params, _, currTokens, currMessage, err := app.buildChatCompletionRequestV3(in, false)
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
@@ -133,7 +102,7 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 		return nil, err
 	}
 	// kvstore
-	if cnf.Kvstore.Enabled {
+	if s.config.Kvstore.Enabled {
 		go func() {
 			err := app.textUpdate(textVector, in.Message, resp.Choices[0].Message.Content)
 			if err != nil {
@@ -170,45 +139,10 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 			return
 		}
 	}()
-	// mysql, vectorDB 保存对话记录
-	if cnf.Mysql.Enabled {
-		go func() {
-			records := &data.ChatRecord{
-				UserMsg:         in.Message,
-				UserMsgTokens:   currTokens,
-				UserMsgKeywords: keywords,
-				AIMsg:           resp.Choices[0].Message.Content,
-				AIMsgTokens:     int(resp.Usage.CompletionTokens),
-				ReqTokens:       tokens,
-				CreateAt:        time.Now().Unix(),
-			}
-			err := s.data.Add(records)
-			if err != nil {
-				s.log.Error(err)
-				return
-			}
-			//保存到向量数据库
-			if len(keywords) > 0 && cnf.VectorDB.Enabled {
-				list := []*vector_data.ChatRecord{
-					{
-						ID: strconv.FormatInt(records.ID, 10),
-						KVs: map[string]string{
-							"keywords": strings.Join(keywords, ","),
-						},
-					},
-				}
-				err = s.vectorData.UpsertData(context.Background(), list)
-				if err != nil {
-					s.log.Error(err)
-					return
-				}
-			}
-		}()
-	}
+
 	return res, err
 }
 func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stream proto.Chat_ChatCompletionStreamServer) error {
-	cnf := config.GetConfig()
 
 	redisContextCache := chat_context.NewRedisCache()
 	defer redisContextCache.Close()
@@ -230,38 +164,9 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 		}
 		return nil
 	}
-
-	//关键词提取
-	keywords := app.keywords(in)
-
-	if len(keywords) > 0 && cnf.Mysql.Enabled && cnf.VectorDB.Enabled {
-		s.busMetrics.KeywordsQuestionsTotalCounter.Inc()
-		idStr, score, err := s.vectorData.QueryData(context.Background(), map[string][]string{"keywords": {strings.Join(keywords, ",")}})
-		if err != nil {
-			s.log.Error(err)
-		} else if score > 0.99 {
-			id, err := strconv.ParseInt(idStr, 10, 64)
-			if err != nil {
-				s.log.Error(err)
-			} else {
-				record, err := s.data.GetById(id)
-				if err != nil {
-					s.log.Error(err)
-				} else {
-					err = app.replyStream(record.AIMsg, stream)
-					if err != nil {
-						s.log.Error(err)
-						return err
-					}
-					return nil
-				}
-			}
-		}
-	}
-
 	// 相似文本检索
 	var textVector []float32
-	if cnf.Kvstore.Enabled {
+	if s.config.Kvstore.Enabled {
 
 		texts := []string{in.Message}
 		embeddingResp, err := app.getEmbeddingResponse(texts)
@@ -364,7 +269,7 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 		return err
 	}
 
-	if cnf.Kvstore.Enabled {
+	if s.config.Kvstore.Enabled {
 		go func() {
 			err := app.textUpdate(textVector, in.Message, resultMessage.Content)
 			if err != nil {
@@ -397,40 +302,6 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 			return
 		}
 	}()
-	if cnf.Mysql.Enabled {
-		go func() {
-			s.busMetrics.QuestionsTotalCounter.Inc()
-			records := &data.ChatRecord{
-				UserMsg:         in.Message,
-				UserMsgTokens:   currTokens,
-				UserMsgKeywords: keywords,
-				AIMsg:           completionContent,
-				AIMsgTokens:     resultTokens,
-				ReqTokens:       tokens,
-				CreateAt:        time.Now().Unix(),
-			}
-			err := s.data.Add(records)
-			if err != nil {
-				s.log.Error(err)
-				return
-			}
-			//保存到向量数据库
-			if len(keywords) > 0 && cnf.VectorDB.Enabled {
-				list := []*vector_data.ChatRecord{
-					{
-						ID: strconv.FormatInt(records.ID, 10),
-						KVs: map[string]string{
-							"keywords": strings.Join(keywords, ","),
-						},
-					},
-				}
-				err = s.vectorData.UpsertData(context.Background(), list)
-				if err != nil {
-					s.log.Error(err)
-					return
-				}
-			}
-		}()
-	}
+
 	return nil
 }
