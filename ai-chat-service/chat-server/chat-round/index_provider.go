@@ -21,7 +21,7 @@ func GetVectorIndex() (index_algorithm.VectorIndex, error) {
 	return index, nil
 }
 
-func InitialVectorIndex(path string, dimensions int) error {
+func InitVectorIndex(path string, dimensions int) error {
 
 	temp, err := index_algorithm.LoadHNSWIndexSnapshot(path)
 	if err == nil {

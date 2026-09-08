@@ -64,7 +64,7 @@ func main() {
 	}
 	// 初始化向量索引
 	if cnf.Kvstore.Enabled {
-		err := chat_round.InitialVectorIndex(hnswIndexPath, cnf.Embedding.VectorDimensions)
+		err := chat_round.InitVectorIndex(hnswIndexPath, cnf.Embedding.VectorDimensions)
 		if err != nil {
 			log.Fatal(err)
 		}
