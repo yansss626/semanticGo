@@ -2,6 +2,7 @@ package server
 
 import (
 	chat_context "ai-chat-service/chat-server/chat-context"
+	chat_round "ai-chat-service/chat-server/chat-round"
 	metrics_bus "ai-chat-service/chat-server/metrics-bus"
 	"ai-chat-service/pkg/config"
 	"ai-chat-service/pkg/log"
@@ -48,29 +49,32 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 
 	// 相似文本检索
 	var textVector []float32
-	if s.config.Kvstore.Enabled {
-		texts := []string{in.Message}
-		embeddingResp, err := app.getEmbeddingResponse(texts)
+	texts := []string{in.Message}
+	embeddingResp, err := app.getEmbeddingResponse(texts)
+	if err != nil {
+		s.log.Error(err)
+	} else {
+		textVector = embeddingResp.Data[0].Embedding
+		retrievalResult, err := app.textRetrieval(texts[0], textVector)
 		if err != nil {
 			s.log.Error(err)
 		} else {
-			textVector = embeddingResp.Data[0].Embedding
-			answer, err := app.textRetrieval(texts[0], textVector)
-			if err != nil {
-				s.log.Error(err)
-			} else {
-				if answer != "" {
-					go func() {
-						err := app.textUpdate(textVector, texts[0], answer)
-						if err != nil {
-							s.log.Error(err)
-						}
+			if retrievalResult != nil && retrievalResult.Answer != "" {
+				go func() {
+					newCacheEntry := &chat_round.SemanticCacheEntry{
+						Answer:      retrievalResult.Answer,
+						TotalTokens: retrievalResult.TotalTokens,
+						Vector:      textVector,
+					}
+					err := app.textUpdate(in.Message, newCacheEntry)
+					if err != nil {
+						s.log.Error(err)
+					}
 
-					}()
+				}()
 
-					resp := app.buildChatCompletionResponse(answer)
-					return resp, nil
-				}
+				resp := app.buildChatCompletionResponse(retrievalResult.Answer)
+				return resp, nil
 			}
 		}
 	}
@@ -101,16 +105,21 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 		s.log.Error(err)
 		return nil, err
 	}
-	// kvstore
-	if s.config.Kvstore.Enabled {
-		go func() {
-			err := app.textUpdate(textVector, in.Message, resp.Choices[0].Message.Content)
-			if err != nil {
-				s.log.Error(err)
-				return
-			}
-		}()
-	}
+
+	// lidis 缓存更新
+	go func() {
+		newCacheEntry := &chat_round.SemanticCacheEntry{
+			Answer:      resp.Choices[0].Message.Content,
+			TotalTokens: int(resp.Usage.TotalTokens),
+			Vector:      textVector,
+		}
+		err := app.textUpdate(in.Message, newCacheEntry)
+		if err != nil {
+			s.log.Error(err)
+			return
+		}
+	}()
+
 	// redis 保存上下文
 	go func() {
 		reqContext := &chat_context.ChatMessage{
@@ -166,38 +175,35 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 	}
 	// 相似文本检索
 	var textVector []float32
-	if s.config.Kvstore.Enabled {
-
-		texts := []string{in.Message}
-		embeddingResp, err := app.getEmbeddingResponse(texts)
+	texts := []string{in.Message}
+	embeddingResp, err := app.getEmbeddingResponse(texts)
+	if err != nil {
+		s.log.Error(err)
+	} else {
+		textVector = embeddingResp.Data[0].Embedding
+		retrievalResult, err := app.textRetrieval(texts[0], textVector)
 		if err != nil {
 			s.log.Error(err)
 		} else {
-			textVector = embeddingResp.Data[0].Embedding
-			answer, err := app.textRetrieval(texts[0], textVector)
-			if err != nil {
-				s.log.Error(err)
-			} else {
-				if answer != "" {
-					go func() {
-						err := app.textUpdate(textVector, texts[0], answer)
-						if err != nil {
-							s.log.Error(err)
-						}
+			if retrievalResult != nil && retrievalResult.Answer != "" {
+				go func() {
+					newCacheEntry := &chat_round.SemanticCacheEntry{
+						Answer:      retrievalResult.Answer,
+						TotalTokens: retrievalResult.TotalTokens,
+						Vector:      textVector,
+					}
+					err := app.textUpdate(in.Message, newCacheEntry)
+					if err != nil {
+						s.log.Error(err)
+					}
 
-					}()
-					savedTokens, err := app.estimateSavedTokens(in, answer)
-					if err != nil {
-						s.log.Error(err)
-						savedTokens = 0
-					}
-					err = app.replyStreamWithMeta(answer, AnswerSourceCache, savedTokens, stream)
-					if err != nil {
-						s.log.Error(err)
-						return err
-					}
-					return nil
+				}()
+				err = app.replyStreamWithMeta(retrievalResult.Answer, AnswerSourceCache, retrievalResult.TotalTokens, stream)
+				if err != nil {
+					s.log.Error(err)
+					return err
 				}
+				return nil
 			}
 		}
 	}
@@ -213,6 +219,9 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 
 	completionContent := ""
 	resultID := ""
+	unmarshaler := jsonpb.Unmarshaler{
+		AllowUnknownFields: true,
+	}
 	for chatStream.Next() {
 		resp := chatStream.Current()
 		if len(resp.Choices) == 0 {
@@ -225,9 +234,7 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 		completionContent += content
 		res := &proto.ChatCompletionStreamResponse{}
 		rawJson := resp.RawJSON()
-		unmarshaler := jsonpb.Unmarshaler{
-			AllowUnknownFields: true,
-		}
+
 		err = unmarshaler.Unmarshal(strings.NewReader(rawJson), res)
 		if err != nil {
 			s.log.Error(err)
@@ -269,15 +276,19 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 		return err
 	}
 
-	if s.config.Kvstore.Enabled {
-		go func() {
-			err := app.textUpdate(textVector, in.Message, resultMessage.Content)
-			if err != nil {
-				s.log.Error(err)
-				return
-			}
-		}()
-	}
+	go func() {
+		newCacheEntry := &chat_round.SemanticCacheEntry{
+			Answer:      resultMessage.Content,
+			TotalTokens: totalTokens,
+			Vector:      textVector,
+		}
+		err := app.textUpdate(in.Message, newCacheEntry)
+		if err != nil {
+			s.log.Error(err)
+			return
+		}
+	}()
+
 	go func() {
 		reqContext := &chat_context.ChatMessage{
 			ID:      in.Id,

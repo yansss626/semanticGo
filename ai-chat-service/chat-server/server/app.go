@@ -351,16 +351,16 @@ func (a *app) sensitive(in *proto.ChatCompletionRequest) (ok bool, msg string, e
 	return
 }
 
-func (a *app) textRetrieval(text string, vector []float32) (string, error) {
+func (a *app) textRetrieval(text string, vector []float32) (*chat_round.SemanticCacheEntry, error) {
 	cacheClient, err := chat_round.NewKvstoreCache()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer cacheClient.Close()
 
 	vectorIndex, err := chat_round.GetVectorIndex()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	round := chat_round.GetRoundObject(cacheClient, vectorIndex)
@@ -368,7 +368,7 @@ func (a *app) textRetrieval(text string, vector []float32) (string, error) {
 	return round.Retrieval(text, vector)
 }
 
-func (a *app) textUpdate(vector []float32, query string, answer string) error {
+func (a *app) textUpdate(query string, newEntry *chat_round.SemanticCacheEntry) error {
 	cacheClient, err := chat_round.NewKvstoreCache()
 	if err != nil {
 		return err
@@ -381,7 +381,7 @@ func (a *app) textUpdate(vector []float32, query string, answer string) error {
 	}
 	round := chat_round.GetRoundObject(cacheClient, vectorIndex)
 
-	return round.Update(vector, query, answer)
+	return round.Update(query, newEntry)
 }
 
 func (a *app) getEmbeddingModel() openai.Client {
@@ -396,26 +396,6 @@ func (a *app) buildEmbeddingRequest(texts []string) openai.EmbeddingNewParams {
 		Model:      openai.EmbeddingModel(a.openaiConf.EmbeddingModel),
 		Dimensions: param.NewOpt(int64(a.openaiConf.EmbeddingVectorDimensions)),
 	}
-}
-
-func (a *app) estimateSavedTokens(in *proto.ChatCompletionRequest, answer string) (int, error) {
-
-	_, tokens, _, _, err := a.buildChatCompletionRequestV3(in, true)
-	if err != nil {
-		return 0, err
-	}
-
-	answerMessage := chat_context.ChatMessageContent{
-		Role:    ChatMessageRoleAssistant,
-		Content: answer,
-	}
-
-	answerTokens, err := tokenizer.GetTokens(&answerMessage, a.openaiConf.Model)
-	if err != nil {
-		return 0, err
-	}
-
-	return tokens + answerTokens, nil
 }
 
 func (a *app) replyStream(message string, stream proto.Chat_ChatCompletionStreamServer) error {

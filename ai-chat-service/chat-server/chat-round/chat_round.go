@@ -1,13 +1,7 @@
 package chat_round
 
 type SemanticCacheEntry struct {
-	Query string `json:"-"`
-
 	Answer string `json:"answer"`
-
-	PromptTokens int `json:"prompt_tokens"`
-
-	CompletionTokens int `json:"completion_tokens"`
 
 	TotalTokens int `json:"total_tokens"`
 
@@ -15,6 +9,6 @@ type SemanticCacheEntry struct {
 }
 
 type Round interface {
-	Retrieval(query string, vector []float32) (string, error)
-	Update(vector []float32, query string, answer string) error
+	Retrieval(query string, vector []float32) (*SemanticCacheEntry, error)
+	Update(query string, newCacheEntry *SemanticCacheEntry) error
 }

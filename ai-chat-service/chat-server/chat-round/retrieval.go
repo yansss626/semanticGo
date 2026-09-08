@@ -58,26 +58,26 @@ func GetEmbeddingObject() embedding.EmbeddingObject {
 	}
 }
 
-func (c *cacheLidis) Retrieval(query string, vector []float32) (string, error) {
+func (c *cacheLidis) Retrieval(query string, vector []float32) (*SemanticCacheEntry, error) {
 	topKResults, err := c.index.SearchK(vector, c.k)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	bestResults, err := c.rank.ReRank(query, topKResults)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if bestResults == nil {
-		return "", nil
+		return nil, nil
 	}
 
 	if bestResults.Score != 1 {
 		queryMeta := query_mata.ExtractQueryMeta(query)
 		bestResultsMeta := query_mata.ExtractQueryMeta(bestResults.Query)
 		if !query_mata.MatchTwoMeta(queryMeta, bestResultsMeta) {
-			return "", nil
+			return nil, nil
 		}
 	}
 
@@ -85,20 +85,20 @@ func (c *cacheLidis) Retrieval(query string, vector []float32) (string, error) {
 
 	value, err := c.cache.Get(bestResults.Query)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if value == "" {
-		return "", nil
+		return nil, nil
 	}
 
 	entry := &SemanticCacheEntry{}
 	err = json.Unmarshal([]byte(value), entry)
 	if err != nil {
-		return "", fmt.Errorf("failed to unmarshal Candidate: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal SemanticCacheEntry: %w", err)
 	}
 
-	return entry.Answer, nil
+	return entry, nil
 }
 
 func saveCacheHitLog(query string, cacheQuery string) {
