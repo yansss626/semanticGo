@@ -1,19 +1,18 @@
 package chat_round
 
 import (
-	index_algorithm "ai-chat-service/chat-server/chat-round/index-algorithm"
 	"encoding/json"
 )
 
 func (c *cacheLidis) Update(vector []float32, query string, answer string) error {
 
-	cand := &index_algorithm.Candidate{
+	newEntry := &SemanticCacheEntry{
 		Query:  query,
-		Vector: vector,
 		Answer: answer,
+		Vector: vector,
 	}
 
-	value, err := json.Marshal(cand)
+	value, err := json.Marshal(newEntry)
 	if err != nil {
 		return err
 	}

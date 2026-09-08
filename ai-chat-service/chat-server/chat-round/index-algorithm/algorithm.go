@@ -2,14 +2,6 @@ package index_algorithm
 
 import "math"
 
-type Candidate struct {
-	Query       string    `json:"-"`
-	Vector      []float32 `json:"vector"`
-	Answer      string    `json:"answer"`
-	ReCallScore float64   `json:"-"`
-	ReRankScore float64   `json:"-"`
-}
-
 type SearchResult struct {
 	Query string
 	Score float64

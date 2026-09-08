@@ -92,13 +92,13 @@ func (c *cacheLidis) Retrieval(query string, vector []float32) (string, error) {
 		return "", nil
 	}
 
-	cand := &index_algorithm.Candidate{}
-	err = json.Unmarshal([]byte(value), cand)
+	entry := &SemanticCacheEntry{}
+	err = json.Unmarshal([]byte(value), entry)
 	if err != nil {
 		return "", fmt.Errorf("failed to unmarshal Candidate: %w", err)
 	}
 
-	return cand.Answer, nil
+	return entry.Answer, nil
 }
 
 func saveCacheHitLog(query string, cacheQuery string) {
