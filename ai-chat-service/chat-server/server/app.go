@@ -296,8 +296,16 @@ func (a *app) buildAnswerMetaResponse(id, source string, tokenCount int) *proto.
 
 func (a *app) buildChatCompletionStreamResponseList(id, msg string) []*proto.ChatCompletionStreamResponse {
 	list := make([]*proto.ChatCompletionStreamResponse, 0)
-	for _, delta := range msg {
-		list = append(list, a.buildChatCompletionStreamResponse(id, string(delta), ""))
+	runes := []rune(msg)
+	chunkSize := 35
+
+	for i := 0; i < len(runes); i += chunkSize {
+		end := i + chunkSize
+		if end > len(runes) {
+			end = len(runes)
+		}
+		chunk := runes[i:end]
+		list = append(list, a.buildChatCompletionStreamResponse(id, string(chunk), ""))
 	}
 	return list
 }
