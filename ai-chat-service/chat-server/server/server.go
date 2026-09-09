@@ -43,7 +43,7 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 		return nil, err
 	}
 	if !ok {
-		res := app.buildChatCompletionResponse(msg)
+		res := app.buildChatCompletionResponse(msg, "", 0)
 		return res, nil
 	}
 
@@ -73,7 +73,7 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 
 					}()
 
-					resp := app.buildChatCompletionResponse(retrievalResult.Answer)
+					resp := app.buildChatCompletionResponse(retrievalResult.Answer, AnswerSourceCache, retrievalResult.TotalTokens)
 					return resp, nil
 				}
 			}
@@ -106,6 +106,7 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 		s.log.Error(err)
 		return nil, err
 	}
+	res.AnswerSource = AnswerSourcePublicModel
 
 	// lidis 缓存更新
 	if s.config.Kvstore.Enabled {

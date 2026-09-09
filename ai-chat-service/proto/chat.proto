@@ -30,7 +30,8 @@ message ChatCompletionResponse {
   int64 created = 3 [json_name = "created"];
   string model = 4 [json_name = "model"];
   repeated  ChatCompletionChoice choices = 5 [json_name = "choices"];
-  Usage usage = 6[json_name = "usage"];
+  Usage usage = 6 [json_name = "usage"];
+  string answerSource = 7 [json_name = "answer_source"];
 }
 message ChatCompletionChoice {
   int32 index = 1[json_name = "index"];

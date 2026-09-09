@@ -241,7 +241,7 @@ func (a *app) rebuildMessages(contextList []*chat_context.ChatMessage, currMessa
 
 	return
 }
-func (a *app) buildChatCompletionResponse(msg string) *proto.ChatCompletionResponse {
+func (a *app) buildChatCompletionResponse(msg string, AnswerSource string, totalTokens int) *proto.ChatCompletionResponse {
 	res := &proto.ChatCompletionResponse{
 		Id:      uuid.New().String(),
 		Object:  "chat.completion",
@@ -259,8 +259,9 @@ func (a *app) buildChatCompletionResponse(msg string) *proto.ChatCompletionRespo
 		Usage: &proto.Usage{
 			PromptTokens:     0,
 			CompletionTokens: 0,
-			TotalTokens:      0,
+			TotalTokens:      int32(totalTokens),
 		},
+		AnswerSource: AnswerSource,
 	}
 	return res
 }
