@@ -170,7 +170,7 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 	}
 	if !ok {
 		s.busMetrics.SensitiveQuestionsTotalCounter.Inc()
-		err = app.replyStream(msg, stream)
+		err = app.replyStreamWithMeta(msg, "", 0, stream)
 		if err != nil {
 			s.log.Error(err)
 			return err
