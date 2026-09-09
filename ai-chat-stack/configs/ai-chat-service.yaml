@@ -75,4 +75,4 @@ Rerank:
   model: "qwen3-rerank"
   instruct: "Retrieve semantically similar text"
   topK: 10
-  rerank_score: 0.9
+  rerank_score: 0.80
