@@ -38,6 +38,8 @@ var intentRules = []IntentRule{
 			"设计",
 			"给出代码",
 			"提供代码",
+			"写",
+			"给我",
 		},
 	},
 
