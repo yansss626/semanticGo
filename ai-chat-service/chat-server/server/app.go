@@ -18,7 +18,6 @@ import (
 	"github.com/google/uuid"
 	openai "github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
-	"github.com/openai/openai-go/v3/packages/param"
 )
 
 const ChatPrimedTokens = 2
@@ -382,20 +381,6 @@ func (a *app) textUpdate(query string, newEntry *chat_round.SemanticCacheEntry) 
 	round := chat_round.GetRoundObject(cacheClient, vectorIndex)
 
 	return round.Update(query, newEntry)
-}
-
-func (a *app) getEmbeddingModel() openai.Client {
-	return openai.NewClient(option.WithAPIKey(a.openaiConf.EmbeddingApiKey), option.WithBaseURL(a.openaiConf.EmbeddingBaseUrl))
-}
-
-func (a *app) buildEmbeddingRequest(texts []string) openai.EmbeddingNewParams {
-	return openai.EmbeddingNewParams{
-		Input: openai.EmbeddingNewParamsInputUnion{
-			OfArrayOfStrings: texts,
-		},
-		Model:      openai.EmbeddingModel(a.openaiConf.EmbeddingModel),
-		Dimensions: param.NewOpt(int64(a.openaiConf.EmbeddingVectorDimensions)),
-	}
 }
 
 func (a *app) replyStream(message string, stream proto.Chat_ChatCompletionStreamServer) error {
