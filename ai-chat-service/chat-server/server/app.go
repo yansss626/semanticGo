@@ -70,7 +70,6 @@ func (s *chatService) newApp(in *proto.ChatCompletionRequest, contextCache chat_
 		PresencePenalty:   s.config.Chat.PresencePenalty,
 		FrequencyPenalty:  s.config.Chat.FrequencyPenalty,
 		BotDesc:           s.config.Chat.BotDesc,
-		ContextTTL:        s.config.Chat.ContextTTL,
 		ContextLen:        s.config.Chat.ContextLen,
 		MinResponseTokens: s.config.Chat.MinResponseTokens,
 		ThinkingType:      s.config.Chat.ThinkingType,

@@ -27,15 +27,9 @@ type Config struct {
 		FrequencyPenalty  float32 `mapstructure:"frequency_penalty"`
 		BotDesc           string  `mapstructure:"bot_desc"`
 		MinResponseTokens int     `mapstructure:"min_response_tokens"`
-		ContextTTL        int     `mapstructure:"context_ttl"`
 		ContextLen        int     `mapstructure:"context_len"`
 		ThinkingType      string  `mapstructure:"thinking_type"`
 		ReasoningEffort   string  `mapstructure:"reasoning_effort"`
-	}
-	Redis struct {
-		Host string
-		Port int
-		Pwd  string `mapstructure:"pwd"`
 	}
 	Kvstore struct {
 		Host        string

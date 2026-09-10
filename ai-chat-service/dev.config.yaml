@@ -32,18 +32,12 @@ chat:
   bot_desc: "你是一个AI助手，我需要你模拟一名资深的软件工程师来回答我的问题"
   # 单次请求，保留的响应tokens数量
   min_response_tokens: 2048
-  # 上下文缓存时长，单位s
-  context_ttl: 1800
   # 上下文消息条数
   context_len: 4
   # 控制思考模式与非思考模式的转换：如果设为 enabled，则使用思考模式。如果设为 disabled，则使用非思考模式
   thinking_type: disabled
   #控制模型的推理强度[low, high, max]
   reasoning_effort: low
-redis:
-  host: "192.168.184.138"
-  port: 6379
-  pwd: "123456"
 kvstore:
   host: "192.168.184.138"
   port: 2000
