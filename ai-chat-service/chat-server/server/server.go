@@ -17,25 +17,24 @@ import (
 
 type chatService struct {
 	proto.UnimplementedChatServer
-	config     *config.Config
-	log        log.ILogger
-	busMetrics *metrics_bus.BusMetrics
+	config       *config.Config
+	log          log.ILogger
+	busMetrics   *metrics_bus.BusMetrics
+	contextCache chat_context.ContextCache
 }
 
-func NewChatService(config *config.Config, log log.ILogger, busMetrics *metrics_bus.BusMetrics) proto.ChatServer {
+func NewChatService(config *config.Config, log log.ILogger, busMetrics *metrics_bus.BusMetrics, contextCache chat_context.ContextCache) proto.ChatServer {
 	return &chatService{
-		config:     config,
-		log:        log,
-		busMetrics: busMetrics,
+		config:       config,
+		log:          log,
+		busMetrics:   busMetrics,
+		contextCache: contextCache,
 	}
 }
 
 func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompletionRequest) (*proto.ChatCompletionResponse, error) {
 
-	redisContextCache := chat_context.NewRedisCache()
-	defer redisContextCache.Close()
-
-	app := s.newApp(in, redisContextCache)
+	app := s.newApp(in, s.contextCache)
 	//敏感词过滤
 	ok, msg, err := app.sensitive(in)
 	if err != nil {
@@ -157,10 +156,7 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 }
 func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stream proto.Chat_ChatCompletionStreamServer) error {
 
-	redisContextCache := chat_context.NewRedisCache()
-	defer redisContextCache.Close()
-
-	app := s.newApp(in, redisContextCache)
+	app := s.newApp(in, s.contextCache)
 	//敏感词过滤
 	ok, msg, err := app.sensitive(in)
 	if err != nil {

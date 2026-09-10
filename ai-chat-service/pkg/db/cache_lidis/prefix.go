@@ -1,4 +1,4 @@
-package redis
+package cache_lidis
 
 import "strings"
 

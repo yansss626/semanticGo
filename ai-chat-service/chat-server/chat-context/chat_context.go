@@ -17,7 +17,7 @@ type ChatMessage struct {
 }
 
 type ContextCache interface {
-	Get(key string) (*ChatMessage, error)
-	Set(key string, value *ChatMessage, ttl int) error
-	Close()
+	GetContext(key string) (*ChatMessage, error)
+	SetContext(key string, message *ChatMessage) error
+	DelContext(key string) error
 }

@@ -315,7 +315,7 @@ func (a *app) getContext(id string) []*chat_context.ChatMessage {
 	list := make([]*chat_context.ChatMessage, 0, maxLen)
 	key := id
 	for i := 0; i < maxLen; i++ {
-		value, err := a.contextCache.Get(key)
+		value, err := a.contextCache.GetContext(key)
 		if err != nil {
 			a.log.Error(err)
 			return nil
@@ -329,7 +329,7 @@ func (a *app) getContext(id string) []*chat_context.ChatMessage {
 	return list
 }
 func (a *app) saveContext(value *chat_context.ChatMessage) error {
-	err := a.contextCache.Set(value.ID, value, a.openaiConf.ContextTTL)
+	err := a.contextCache.SetContext(value.ID, value)
 	if err != nil {
 		a.log.Error(err)
 		return err

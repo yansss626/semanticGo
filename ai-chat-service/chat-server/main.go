@@ -1,6 +1,7 @@
 package main
 
 import (
+	chat_context "ai-chat-service/chat-server/chat-context"
 	chat_round "ai-chat-service/chat-server/chat-round"
 	metrics_app "ai-chat-service/chat-server/metrics-app"
 	metrics_bus "ai-chat-service/chat-server/metrics-bus"
@@ -8,7 +9,6 @@ import (
 	"ai-chat-service/interceptor"
 	"ai-chat-service/pkg/config"
 	"ai-chat-service/pkg/db/kvstore"
-	"ai-chat-service/pkg/db/redis"
 	"ai-chat-service/pkg/log"
 	"ai-chat-service/proto"
 	"flag"
@@ -56,8 +56,11 @@ func main() {
 	logger.SetOutput(log.GetRotateWriter(cnf.Log.LogPath))
 	logger.SetPrintCaller(true)
 
-	// 初始化redis
-	redis.InitRedisPool(cnf)
+	// 初始化上下文缓存
+	contextCache, err := chat_context.NewLidisCache(cnf)
+	if err != nil {
+		log.Fatal(err)
+	}
 	// 初始化kvstore
 	if cnf.Kvstore.Enabled {
 		kvstore.InitKvstorePool(cnf)
@@ -75,7 +78,7 @@ func main() {
 		log.Fatal(err)
 	}
 	s := grpc.NewServer(grpc.UnaryInterceptor(interceptor.UnaryAuthInterceptor), grpc.StreamInterceptor(metrics_app.NewStreamMiddleware(registry).WrapHandler()))
-	service := server.NewChatService(cnf, logger, busMetrics)
+	service := server.NewChatService(cnf, logger, busMetrics, contextCache)
 	proto.RegisterChatServer(s, service)
 
 	healthCheckSrv := health.NewServer()
