@@ -5,7 +5,6 @@ import (
 	chat_round "ai-chat-service/chat-server/chat-round"
 	"ai-chat-service/chat-server/chat-round/embedding"
 	"ai-chat-service/pkg/config"
-	"ai-chat-service/pkg/log"
 	"ai-chat-service/pkg/zerror"
 	"ai-chat-service/proto"
 	"ai-chat-service/services"
@@ -54,7 +53,6 @@ type openaiConf struct {
 }
 type app struct {
 	openaiConf *openaiConf
-	log        log.ILogger
 	// TODO 内容上下文对象
 	contextCache chat_context.ContextCache
 }
@@ -114,7 +112,6 @@ func (s *chatService) newApp(in *proto.ChatCompletionRequest, contextCache chat_
 	}
 	return &app{
 		openaiConf:   conf,
-		log:          s.log,
 		contextCache: contextCache,
 	}
 }
@@ -137,7 +134,10 @@ func (a *app) buildChatCompletionRequestV3(in *proto.ChatCompletionRequest, stre
 	}
 	var contextList []*chat_context.ChatMessage
 	if in.EnableContext {
-		contextList = a.getContext(in.Pid)
+		contextList, err = a.getContext(in.Pid)
+		if err != nil {
+			return
+		}
 	}
 	tokens, currTokens, messages, err := a.rebuildMessages(contextList, currMessage)
 	if err != nil {
@@ -309,15 +309,14 @@ func (a *app) buildChatCompletionStreamResponseList(id, msg string) []*proto.Cha
 	return list
 }
 
-func (a *app) getContext(id string) []*chat_context.ChatMessage {
+func (a *app) getContext(id string) ([]*chat_context.ChatMessage, error) {
 	maxLen := a.openaiConf.ContextLen
 	list := make([]*chat_context.ChatMessage, 0, maxLen)
 	key := id
 	for i := 0; i < maxLen; i++ {
 		value, err := a.contextCache.GetContext(key)
 		if err != nil {
-			a.log.Error(err)
-			return nil
+			return nil, err
 		}
 		if value == nil {
 			break
@@ -325,12 +324,11 @@ func (a *app) getContext(id string) []*chat_context.ChatMessage {
 		list = append(list, value)
 		key = value.PID
 	}
-	return list
+	return list, nil
 }
 func (a *app) saveContext(value *chat_context.ChatMessage) error {
 	err := a.contextCache.SetContext(value.ID, value)
 	if err != nil {
-		a.log.Error(err)
 		return err
 	}
 	return nil
@@ -348,7 +346,6 @@ func (a *app) sensitive(in *proto.ChatCompletionRequest) (ok bool, msg string, e
 	}
 	res, err := client.Validate(ctx, req)
 	if err != nil {
-		a.log.Error(err)
 		return false, "", err
 	}
 	ok = res.Ok
