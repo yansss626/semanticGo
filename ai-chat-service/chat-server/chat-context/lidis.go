@@ -39,6 +39,9 @@ func (l *lidisCache) GetContext(key string) (*ChatMessage, error) {
 	if err != nil {
 		return nil, err
 	}
+	if value == "" {
+		return nil, nil
+	}
 	message := &ChatMessage{}
 	err = json.Unmarshal([]byte(value), message)
 	if err != nil {
