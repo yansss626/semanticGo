@@ -122,13 +122,13 @@ func (a *app) getEmbeddingResponse(texts []string) (*embedding.EmbeddingResponse
 	return client.Get(texts)
 }
 
-func (a *app) buildChatCompletionRequestV3(in *proto.ChatCompletionRequest) (params openai.ChatCompletionNewParams, tokens, currTokens int, currMessage chat_context.ChatMessageContent, err error) {
+func (a *app) buildChatCompletionRequestV3(in *proto.ChatCompletionRequest) (params openai.ChatCompletionNewParams, tokens, currTokens int, currMessage chat_context.ChatMessageContent,
+	contextList []*chat_context.ChatMessage, err error) {
 
 	currMessage = chat_context.ChatMessageContent{
 		Role:    ChatMessageRoleUser,
 		Content: in.Message,
 	}
-	var contextList []*chat_context.ChatMessage
 	if in.EnableContext {
 		contextList, err = a.getContext(in.Pid)
 		if err != nil {
@@ -351,6 +351,43 @@ func (a *app) sensitive(in *proto.ChatCompletionRequest) (ok bool, msg string, e
 	return
 }
 
+func (a *app) delExcessContext(contextList []*chat_context.ChatMessage) error {
+	maxLen := a.openaiConf.ContextLen
+	totalLen := len(contextList)
+	if maxLen <= 0 || totalLen <= maxLen {
+		return nil
+	}
+
+	for i := maxLen; i < totalLen; i++ {
+		if contextList[i] != nil && contextList[i].ID != "" {
+			err := a.contextCache.DelContext(contextList[i].ID)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	last := contextList[totalLen-1]
+	if last == nil {
+		return nil
+	}
+	key := last.PID
+	for key != "" {
+		value, err := a.contextCache.GetContext(key)
+		if err != nil {
+			return err
+		}
+		err = a.contextCache.DelContext(key)
+		if err != nil {
+			return err
+		}
+		if value == nil {
+			break
+		}
+		key = value.PID
+	}
+
+	return nil
+}
 func (a *app) textRetrieval(text string, vector []float32) (*chat_round.SemanticCacheEntry, error) {
 	cacheClient, err := chat_round.NewKvstoreCache()
 	if err != nil {

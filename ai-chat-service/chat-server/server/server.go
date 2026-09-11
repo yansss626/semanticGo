@@ -80,7 +80,7 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 	}
 
 	client := app.getOpenaiClientV3()
-	params, _, currTokens, currMessage, err := app.buildChatCompletionRequestV3(in)
+	params, _, currTokens, currMessage, contextList, err := app.buildChatCompletionRequestV3(in)
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
@@ -150,6 +150,13 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 			s.log.Error(err)
 			return
 		}
+		newContextlist := []*chat_context.ChatMessage{reqContext, resContext}
+		newContextlist = append(newContextlist, contextList...)
+		err = app.delExcessContext(newContextlist)
+		if err != nil {
+			s.log.Error(err)
+			return
+		}
 	}()
 
 	return res, err
@@ -210,7 +217,7 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 	}
 
 	client := app.getOpenaiClientV3()
-	params, tokens, currTokens, currMessage, err := app.buildChatCompletionRequestV3(in)
+	params, tokens, currTokens, currMessage, contextList, err := app.buildChatCompletionRequestV3(in)
 	if err != nil {
 		s.log.Error(err)
 		return err
@@ -311,6 +318,13 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 			Tokens:  resultTokens,
 		}
 		err = app.saveContext(resContext)
+		if err != nil {
+			s.log.Error(err)
+			return
+		}
+		newContextlist := []*chat_context.ChatMessage{resContext, reqContext}
+		newContextlist = append(newContextlist, contextList...)
+		err = app.delExcessContext(newContextlist)
 		if err != nil {
 			s.log.Error(err)
 			return
