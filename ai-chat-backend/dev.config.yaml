@@ -26,8 +26,6 @@ chat:
   bot_desc: "你是一个AI助手，我需要你模拟一名资深的软件工程师来回答我的问题"
   # 单次请求，保留的响应tokens数量
   min_response_tokens: 2048
-  # 上下文缓存时长，单位s
-  context_ttl: 1800
   # 上下文消息条数
   context_len: 4
 dependOn:

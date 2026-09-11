@@ -40,7 +40,6 @@ type openaiConf struct {
 	PresencePenalty   float32
 	FrequencyPenalty  float32
 	BotDesc           string
-	ContextTTL        int
 	ContextLen        int
 	MinResponseTokens int
 	ThinkingType      string
@@ -99,9 +98,6 @@ func (s *chatService) newApp(in *proto.ChatCompletionRequest, contextCache chat_
 		}
 		if in.ChatParam.MaxTokens != 0 {
 			conf.MaxTokens = int(in.ChatParam.MaxTokens)
-		}
-		if in.ChatParam.ContextTTL != 0 {
-			conf.ContextTTL = int(in.ChatParam.ContextTTL)
 		}
 		if in.ChatParam.ContextLen != 0 {
 			conf.ContextLen = int(in.ChatParam.ContextLen)
