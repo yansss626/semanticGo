@@ -126,7 +126,7 @@ func (a *app) getEmbeddingResponse(texts []string) (*embedding.EmbeddingResponse
 	return client.Get(texts)
 }
 
-func (a *app) buildChatCompletionRequestV3(in *proto.ChatCompletionRequest, stream bool) (params openai.ChatCompletionNewParams, tokens, currTokens int, currMessage chat_context.ChatMessageContent, err error) {
+func (a *app) buildChatCompletionRequestV3(in *proto.ChatCompletionRequest) (params openai.ChatCompletionNewParams, tokens, currTokens int, currMessage chat_context.ChatMessageContent, err error) {
 
 	currMessage = chat_context.ChatMessageContent{
 		Role:    ChatMessageRoleUser,
