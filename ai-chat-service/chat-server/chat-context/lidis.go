@@ -2,7 +2,7 @@ package chat_context
 
 import (
 	"ai-chat-service/pkg/config"
-	"ai-chat-service/pkg/db/cache_lidis"
+	cache_key "ai-chat-service/pkg/db/cache-key"
 	"encoding/json"
 	"fmt"
 
@@ -29,8 +29,12 @@ func NewLidisCache(cnf *config.Config) (ContextCache, error) {
 	}, nil
 }
 
+func getContextKey(key string) string {
+	return cache_key.GetKey("context", key)
+}
+
 func (l *lidisCache) GetContext(key string) (*ChatMessage, error) {
-	key = cache_lidis.GetKey(key)
+	key = getContextKey(key)
 	value, err := l.lidisClient.HashGet(key)
 	if err != nil {
 		return nil, err
@@ -45,7 +49,7 @@ func (l *lidisCache) GetContext(key string) (*ChatMessage, error) {
 }
 
 func (l *lidisCache) SetContext(key string, message *ChatMessage) error {
-	key = cache_lidis.GetKey(key)
+	key = getContextKey(key)
 	value, err := json.Marshal(message)
 	if err != nil {
 		return err
@@ -56,7 +60,7 @@ func (l *lidisCache) SetContext(key string, message *ChatMessage) error {
 }
 
 func (l *lidisCache) DelContext(key string) error {
-	key = cache_lidis.GetKey(key)
+	key = getContextKey(key)
 	_, err := l.lidisClient.HashDel(key)
 	return err
 }

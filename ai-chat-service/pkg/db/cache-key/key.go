@@ -1,4 +1,4 @@
-package cache_lidis
+package cache_key
 
 import "strings"
 
