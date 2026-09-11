@@ -9,10 +9,10 @@ require (
 	github.com/kshard/vector v0.1.1
 	github.com/openai/openai-go/v3 v3.55.0
 	github.com/prometheus/client_golang v1.20.4
-	github.com/redis/go-redis/v9 v9.6.1
 	github.com/silenceper/pool v1.0.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.19.0
+	github.com/yansss626/go-lidis v0.2.0
 	google.golang.org/grpc v1.65.0
 	google.golang.org/protobuf v1.34.2
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
@@ -23,7 +23,6 @@ require (
 	github.com/bits-and-blooms/bitset v1.25.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chewxy/math32 v1.11.2 // indirect
-	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/fogfish/faults v0.3.2 // indirect
 	github.com/fogfish/golem/pure v0.10.1 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
@@ -48,7 +47,6 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
-	github.com/yansss626/go-lidis v0.2.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d // indirect
