@@ -42,8 +42,7 @@ type Config struct {
 	}
 	DependOn struct {
 		Sensitive struct {
-			Address     string
-			AccessToken string
+			Address string
 		}
 		Tokenizer struct {
 			Address string

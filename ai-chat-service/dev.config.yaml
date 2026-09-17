@@ -54,7 +54,6 @@ kvstore:
 dependOn:
   sensitive:
     address: "localhost:50053"
-    accessToken: "ang1chubdev1ozhome256487d22sapguuv1ozhom"
   tokenizer:
     address: "http://192.168.184.138:3002"
 Embedding: # Embedding 模型，将问题文本转化为数字向量
