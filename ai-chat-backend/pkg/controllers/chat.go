@@ -1,18 +1,15 @@
 package controllers
 
 import (
+	"ai-chat-backend/mrpc_generated/chat"
 	"ai-chat-backend/pkg/config"
 	"ai-chat-backend/pkg/log"
-	"ai-chat-backend/services"
 	ai_chat_service "ai-chat-backend/services/ai-chat-service"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"time"
-
-	ai_chat_service_proto "ai-chat-backend/services/ai-chat-service/proto"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -26,8 +23,9 @@ const (
 )
 
 type ChatService struct {
-	config *config.Config
-	log    log.ILogger
+	config                *config.Config
+	log                   log.ILogger
+	chatServiceClientPool *ai_chat_service.ChatServiceClientPool
 }
 
 type ChatCompletionParams struct {
@@ -51,25 +49,26 @@ type ChatMessageRequestOptions struct {
 }
 
 type ChatMessage struct {
-	ID              string                                              `json:"id"`
-	Text            string                                              `json:"text"`
-	Role            string                                              `json:"role"`
-	Name            string                                              `json:"name"`
-	Delta           string                                              `json:"delta"`
-	Detail          *ai_chat_service_proto.ChatCompletionStreamResponse `json:"detail"`
-	TokenCount      int                                                 `json:"tokenCount"`
-	ParentMessageId string                                              `json:"parentMessageId"`
-	AnswerSource    string                                              `json:"answerSource,omitempty"`
+	ID              string                             `json:"id"`
+	Text            string                             `json:"text"`
+	Role            string                             `json:"role"`
+	Name            string                             `json:"name"`
+	Delta           string                             `json:"delta"`
+	Detail          *chat.ChatCompletionStreamResponse `json:"detail"`
+	TokenCount      int                                `json:"tokenCount"`
+	ParentMessageId string                             `json:"parentMessageId"`
+	AnswerSource    string                             `json:"answerSource,omitempty"`
 }
 
-func NewChatService(config *config.Config, log log.ILogger) (*ChatService, error) {
+func NewChatService(config *config.Config, log log.ILogger, chatServiceClientPool *ai_chat_service.ChatServiceClientPool) (*ChatService, error) {
 	return &ChatService{
-		config: config,
-		log:    log,
+		config:                config,
+		log:                   log,
+		chatServiceClientPool: chatServiceClientPool,
 	}, nil
 }
 
-func (chat *ChatService) ChatProcess(ctx *gin.Context) {
+func (c *ChatService) ChatProcess(ctx *gin.Context) {
 	payload := ChatMessageRequest{}
 	if err := ctx.BindJSON(&payload); err != nil {
 		klog.Error(err)
@@ -90,36 +89,9 @@ func (chat *ChatService) ChatProcess(ctx *gin.Context) {
 		ParentMessageId: messageID,
 	}
 
-	aiChatServicePool := ai_chat_service.GetAiChatServiceClientPool()
-	conn := aiChatServicePool.Get()
-	defer aiChatServicePool.Put(conn)
-	ctx1 := services.AppendBearerTokenToContext(context.Background(), chat.config.DependOn.AiChatService.AccessToken)
-	in := &ai_chat_service_proto.ChatCompletionRequest{
-		Id:            messageID,
-		Message:       payload.Prompt,
-		Pid:           payload.Options.ParentMessageId,
-		EnableContext: false,
-		ChatParam: &ai_chat_service_proto.ChatParam{
-			Model:             chat.config.Chat.Model,
-			MaxTokens:         int32(chat.config.Chat.MaxTokens),
-			Temperature:       chat.config.Chat.Temperature,
-			TopP:              chat.config.Chat.TopP,
-			PresencePenalty:   chat.config.Chat.PresencePenalty,
-			FrequencyPenalty:  chat.config.Chat.FrequencyPenalty,
-			BotDesc:           chat.config.Chat.BotDesc,
-			ContextTTL:        int32(chat.config.Chat.ContextTTL),
-			ContextLen:        int32(chat.config.Chat.ContextLen),
-			MinResponseTokens: int32(chat.config.Chat.MinResponseTokens),
-		},
-	}
-	if in.Pid != "" {
-		in.EnableContext = true
-	}
-
-	aiChatServiceClient := ai_chat_service_proto.NewChatClient(conn)
-	stream, err := aiChatServiceClient.ChatCompletionStream(ctx1, in)
+	aiChatServiceClient, put, err := c.chatServiceClientPool.Get()
 	if err != nil {
-		chat.log.Error(err)
+		c.log.Error(err)
 		ctx.JSON(200, gin.H{
 			"status":  "Fail",
 			"message": fmt.Sprintf("%v", err),
@@ -127,7 +99,39 @@ func (chat *ChatService) ChatProcess(ctx *gin.Context) {
 		})
 		return
 	}
-	defer stream.CloseSend()
+	defer put()
+	in := &chat.ChatCompletionRequest{
+		Id:            messageID,
+		Message:       payload.Prompt,
+		Pid:           payload.Options.ParentMessageId,
+		EnableContext: false,
+		ChatParam: &chat.ChatParam{
+			Model:             c.config.Chat.Model,
+			MaxTokens:         int32(c.config.Chat.MaxTokens),
+			Temperature:       c.config.Chat.Temperature,
+			TopP:              c.config.Chat.TopP,
+			PresencePenalty:   c.config.Chat.PresencePenalty,
+			FrequencyPenalty:  c.config.Chat.FrequencyPenalty,
+			BotDesc:           c.config.Chat.BotDesc,
+			ContextTTL:        int32(c.config.Chat.ContextTTL),
+			ContextLen:        int32(c.config.Chat.ContextLen),
+			MinResponseTokens: int32(c.config.Chat.MinResponseTokens),
+		},
+	}
+	if in.Pid != "" {
+		in.EnableContext = true
+	}
+
+	stream, err := aiChatServiceClient.ChatCompletionStream(ctx, in)
+	if err != nil {
+		c.log.Error(err)
+		ctx.JSON(200, gin.H{
+			"status":  "Fail",
+			"message": fmt.Sprintf("%v", err),
+			"data":    nil,
+		})
+		return
+	}
 
 	firstChunk := true
 	ctx.Header("Content-type", "application/octet-stream")

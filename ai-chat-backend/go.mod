@@ -1,12 +1,13 @@
 module ai-chat-backend
 
-go 1.21
+go 1.25.0
 
 require (
 	github.com/gin-gonic/gin v1.9.0
 	github.com/google/uuid v1.6.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.19.0
+	github.com/yansss/mrpc v0.0.0-00010101000000-000000000000
 	golang.org/x/time v0.5.0
 	google.golang.org/grpc v1.65.0
 	google.golang.org/protobuf v1.34.1
@@ -36,6 +37,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.2 // indirect
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
+	github.com/silenceper/pool v1.0.0 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.11.0 // indirect
 	github.com/spf13/cast v1.6.0 // indirect
@@ -55,3 +57,5 @@ require (
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/yansss/mrpc => ../mrpc

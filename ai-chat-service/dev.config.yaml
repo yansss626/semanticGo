@@ -50,7 +50,7 @@ kvstore:
   # 连接最大空闲时间（秒），超过该事件则将失效
   idle_timeout: 6000
   # 选择是否开启 kvstore
-  enabled: true
+  enabled: false
 dependOn:
   sensitive:
     address: "localhost:50053"

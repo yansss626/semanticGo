@@ -3,6 +3,7 @@ package main
 import (
 	"ai-chat-backend/pkg/config"
 	"ai-chat-backend/pkg/log"
+	ai_chat_service "ai-chat-backend/services/ai-chat-service"
 	"context"
 	"flag"
 	"fmt"
@@ -28,7 +29,11 @@ func (r *ChatGPTWebServer) Run(ctx context.Context) error {
 }
 
 func (r *ChatGPTWebServer) httpServer(ctx context.Context) {
-	chatService, err := controllers.NewChatService(r.config, r.log)
+	chatServiceClientPool, err := ai_chat_service.InitFilterClientPool(r.config)
+	if err != nil {
+		r.log.Fatal(err)
+	}
+	chatService, err := controllers.NewChatService(r.config, r.log, chatServiceClientPool)
 	if err != nil {
 		r.log.Fatal(err)
 	}

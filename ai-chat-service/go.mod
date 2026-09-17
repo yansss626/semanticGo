@@ -4,7 +4,6 @@ go 1.25.0
 
 require (
 	github.com/fogfish/hnsw v0.0.5
-	github.com/golang/protobuf v1.5.4
 	github.com/google/uuid v1.6.0
 	github.com/kshard/vector v0.1.1
 	github.com/openai/openai-go/v3 v3.55.0

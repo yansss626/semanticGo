@@ -18,10 +18,19 @@ func FieldGoType(field Field) string {
 
 	t := field.Type
 
+	if field.Type == "float" {
+		t = "float32"
+	} else if field.Type == "double" {
+		t = "float64"
+	}
+
+	if field.Optional {
+		t = "*" + t
+	}
+
 	if field.Repeated {
 
 		t = "[]" + t
-
 	}
 
 	return t

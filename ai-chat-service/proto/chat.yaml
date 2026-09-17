@@ -1,0 +1,209 @@
+package: chat
+messages: 
+  ChatCompletionRequest:
+    fields:
+    - name: message
+      type: string
+      json_name: message
+
+    - name: id
+      type: string
+      json_name: id
+      
+    - name: pid
+      type: string
+      json_name: p_id
+
+    - name: enableContext
+      type: bool
+      json_name: enable_context
+
+    - name: chatParam
+      type: ChatParam
+      json_name: chat_param
+      optional: true
+
+  ChatParam:
+    fields:
+    - name: model
+      type: string
+      json_name: model
+
+    - name: maxTokens
+      type: int32
+      json_name: max_tokens
+
+    - name: topP
+      type: float
+      json_name: top_p
+
+    - name: presencePenalty
+      type: float
+      json_name: presence_penalty
+
+    - name: frequencyPenalty
+      type: float
+      json_name: frequency_penalty
+
+    - name: botDesc
+      type: string
+      json_name: bot_desc
+
+    - name: minResponseTokens
+      type: int32
+      json_name: min_response_tokens
+
+    - name: contextTTL
+      type: int32
+      json_name: context_ttl
+
+    - name: contextLen
+      type: int32
+      json_name: context_len
+
+    - name: temperature
+      type: float
+      json_name: temperature
+
+  ChatCompletionResponse:
+    fields:
+    - name: id
+      type: string
+      json_name: id
+
+    - name: object
+      type: string
+      json_name: object
+
+    - name: model
+      type: string
+      json_name: model
+
+    - name: choices
+      type: ChatCompletionChoice
+      optional: true
+      repeated: true
+      json_name: choices
+
+    - name: usage
+      type: Usage
+      json_name: usage
+      optional: true
+
+    - name: answerSource
+      type: string
+      json_name: answer_source
+
+    - name: created
+      type: int64
+      json_name: created
+
+  ChatCompletionChoice:
+    fields:
+    - name: index
+      type: int32
+      json_name: index
+
+    - name: message
+      type: ChatCompletionMessage
+      json_name: message
+
+    - name: finishReason
+      type: string
+      json_name: finish_reason
+
+  ChatCompletionMessage:
+    fields:
+    - name: role
+      type: string
+      json_name: role
+
+    - name: content
+      type: string
+      json_name: content
+
+    - name: name
+      type: string
+      json_name: name
+
+  Usage:
+    fields:
+    - name: promptTokens
+      type: int32
+      json_name: prompt_tokens
+
+    - name: completionTokens
+      type: int32
+      json_name: completion_tokens
+
+    - name: totalTokens
+      type: int32
+      json_name: total_tokens
+
+  ChatCompletionStreamResponse:
+    fields:
+    - name: id
+      type: string
+      json_name: id
+
+    - name: object
+      type: string
+      json_name: object
+
+    - name: model
+      type: string
+      json_name: model
+
+    - name: choices
+      type: ChatCompletionStreamChoice
+      repeated: true
+      optional: true
+      json_name: choices
+
+    - name: tokenCount
+      type: int32
+      json_name: token_count
+
+    - name: answerSource
+      type: string
+      json_name: answer_source
+
+    - name: created
+      type: int64
+      json_name: created
+
+  ChatCompletionStreamChoice: 
+    fields:
+    - name: index
+      type: int32
+      json_name: index
+
+    - name: delta
+      type: ChatCompletionStreamChoiceDelta
+      json_name: delta
+
+    - name: finishReason
+      type: string
+      json_name: finish_reason
+
+  ChatCompletionStreamChoiceDelta: 
+    fields:
+    - name: content
+      type: string
+      json_name: content
+
+    - name: role
+      type: string
+      json_name: role
+
+
+services:
+  ChatService:
+    methods:
+     ChatCompletion: 
+      request: ChatCompletionRequest
+      response: ChatCompletionResponse
+     ChatCompletionStream: 
+      request: ChatCompletionRequest
+      response: ChatCompletionStreamResponse
+      server_stream: true

@@ -4,20 +4,18 @@ import (
 	chat_context "ai-chat-service/chat-server/chat-context"
 	chat_round "ai-chat-service/chat-server/chat-round"
 	metrics_bus "ai-chat-service/chat-server/metrics-bus"
+	"ai-chat-service/mrpc_generated/chat"
 	"ai-chat-service/pkg/config"
 	"ai-chat-service/pkg/log"
-	"ai-chat-service/proto"
 	keywords_filter "ai-chat-service/services/keywords-filter"
 	"ai-chat-service/services/tokenizer"
 	"context"
 	"encoding/json"
-	"strings"
 
-	"github.com/golang/protobuf/jsonpb"
+	mrpc "github.com/yansss/mrpc/runtime"
 )
 
 type chatService struct {
-	proto.UnimplementedChatServer
 	config           *config.Config
 	log              log.ILogger
 	busMetrics       *metrics_bus.BusMetrics
@@ -26,7 +24,7 @@ type chatService struct {
 }
 
 func NewChatService(config *config.Config, log log.ILogger, busMetrics *metrics_bus.BusMetrics,
-	contextCache chat_context.ContextCache, filterClientPool *keywords_filter.FilterClientPool) proto.ChatServer {
+	contextCache chat_context.ContextCache, filterClientPool *keywords_filter.FilterClientPool) *chatService {
 	return &chatService{
 		config:           config,
 		log:              log,
@@ -36,7 +34,7 @@ func NewChatService(config *config.Config, log log.ILogger, busMetrics *metrics_
 	}
 }
 
-func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompletionRequest) (*proto.ChatCompletionResponse, error) {
+func (s *chatService) ChatCompletion(ctx context.Context, in *chat.ChatCompletionRequest) (*chat.ChatCompletionResponse, error) {
 
 	app := s.newApp(in, s.contextCache, s.filterClientPool)
 	//敏感词过滤
@@ -94,17 +92,13 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 		s.log.Error(err)
 		return nil, err
 	}
-	res := &proto.ChatCompletionResponse{}
+	res := &chat.ChatCompletionResponse{}
 	bytes, err := json.Marshal(resp)
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
 	}
-	// 允许 jsonpb 忽略未知字段
-	unmarshaler := jsonpb.Unmarshaler{
-		AllowUnknownFields: true,
-	}
-	err = unmarshaler.Unmarshal(strings.NewReader(string(bytes)), res)
+	err = json.Unmarshal(bytes, res)
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
@@ -127,7 +121,7 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 		}(textVector)
 	}
 
-	// redis 保存上下文
+	// 保存上下文
 	go func() {
 		reqContext := &chat_context.ChatMessage{
 			ID:      in.Id,
@@ -165,7 +159,7 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 
 	return res, err
 }
-func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stream proto.Chat_ChatCompletionStreamServer) error {
+func (s *chatService) ChatCompletionStream(ctx context.Context, in *chat.ChatCompletionRequest, stream *mrpc.StreamServer) error {
 
 	app := s.newApp(in, s.contextCache, s.filterClientPool)
 	//敏感词过滤
@@ -226,14 +220,12 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 		s.log.Error(err)
 		return err
 	}
-	chatStream := client.Chat.Completions.NewStreaming(stream.Context(), params)
+	chatStream := client.Chat.Completions.NewStreaming(ctx, params)
 	defer chatStream.Close()
 
 	completionContent := ""
 	resultID := ""
-	unmarshaler := jsonpb.Unmarshaler{
-		AllowUnknownFields: true,
-	}
+
 	for chatStream.Next() {
 		resp := chatStream.Current()
 		if len(resp.Choices) == 0 {
@@ -244,14 +236,9 @@ func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stre
 		}
 		content := resp.Choices[0].Delta.Content
 		completionContent += content
-		res := &proto.ChatCompletionStreamResponse{}
+		res := &chat.ChatCompletionStreamResponse{}
 		rawJson := resp.RawJSON()
-
-		err = unmarshaler.Unmarshal(strings.NewReader(rawJson), res)
-		if err != nil {
-			s.log.Error(err)
-			return err
-		}
+		err := json.Unmarshal([]byte(rawJson), res)
 
 		err = stream.Send(res)
 		if err != nil {

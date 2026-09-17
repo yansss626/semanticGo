@@ -4,9 +4,9 @@ import (
 	chat_context "ai-chat-service/chat-server/chat-context"
 	chat_round "ai-chat-service/chat-server/chat-round"
 	"ai-chat-service/chat-server/chat-round/embedding"
+	"ai-chat-service/mrpc_generated/chat"
 	"ai-chat-service/mrpc_generated/filter"
 	"ai-chat-service/pkg/zerror"
-	"ai-chat-service/proto"
 	keywords_filter "ai-chat-service/services/keywords-filter"
 	"ai-chat-service/services/tokenizer"
 	"context"
@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	openai "github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
+	mrpc "github.com/yansss/mrpc/runtime"
 )
 
 const ChatPrimedTokens = 2
@@ -55,7 +56,7 @@ type app struct {
 	filterClientPool *keywords_filter.FilterClientPool
 }
 
-func (s *chatService) newApp(in *proto.ChatCompletionRequest, contextCache chat_context.ContextCache, filterClientPool *keywords_filter.FilterClientPool) *app {
+func (s *chatService) newApp(in *chat.ChatCompletionRequest, contextCache chat_context.ContextCache, filterClientPool *keywords_filter.FilterClientPool) *app {
 	conf := &openaiConf{
 		ApiKey:            s.config.Chat.ApiKey,
 		BaseUrl:           s.config.Chat.BaseUrl,
@@ -122,7 +123,7 @@ func (a *app) getEmbeddingResponse(texts []string) (*embedding.EmbeddingResponse
 	return client.Get(texts)
 }
 
-func (a *app) buildChatCompletionRequestV3(in *proto.ChatCompletionRequest) (params openai.ChatCompletionNewParams, tokens, currTokens int, currMessage chat_context.ChatMessageContent,
+func (a *app) buildChatCompletionRequestV3(in *chat.ChatCompletionRequest) (params openai.ChatCompletionNewParams, tokens, currTokens int, currMessage chat_context.ChatMessageContent,
 	contextList []*chat_context.ChatMessage, err error) {
 
 	currMessage = chat_context.ChatMessageContent{
@@ -236,22 +237,22 @@ func (a *app) rebuildMessages(contextList []*chat_context.ChatMessage, currMessa
 
 	return
 }
-func (a *app) buildChatCompletionResponse(msg string, AnswerSource string, totalTokens int) *proto.ChatCompletionResponse {
-	res := &proto.ChatCompletionResponse{
+func (a *app) buildChatCompletionResponse(msg string, AnswerSource string, totalTokens int) *chat.ChatCompletionResponse {
+	res := &chat.ChatCompletionResponse{
 		Id:      uuid.New().String(),
 		Object:  "chat.completion",
 		Created: time.Now().Unix(),
 		Model:   a.openaiConf.Model,
-		Choices: []*proto.ChatCompletionChoice{
+		Choices: []*chat.ChatCompletionChoice{
 			{
-				Message: &proto.ChatCompletionMessage{
+				Message: chat.ChatCompletionMessage{
 					Role:    ChatMessageRoleAssistant,
 					Content: msg,
 				},
 				FinishReason: "stop",
 			},
 		},
-		Usage: &proto.Usage{
+		Usage: &chat.Usage{
 			PromptTokens:     0,
 			CompletionTokens: 0,
 			TotalTokens:      int32(totalTokens),
@@ -261,16 +262,16 @@ func (a *app) buildChatCompletionResponse(msg string, AnswerSource string, total
 	return res
 }
 
-func (a *app) buildChatCompletionStreamResponse(id, delta, finishReason string) *proto.ChatCompletionStreamResponse {
-	res := &proto.ChatCompletionStreamResponse{
+func (a *app) buildChatCompletionStreamResponse(id, delta, finishReason string) *chat.ChatCompletionStreamResponse {
+	res := &chat.ChatCompletionStreamResponse{
 		Id:      id,
 		Object:  "chat.completion.chunk",
 		Created: time.Now().Unix(),
 		Model:   a.openaiConf.Model,
-		Choices: []*proto.ChatCompletionStreamChoice{
+		Choices: []*chat.ChatCompletionStreamChoice{
 			{
 				Index: 0,
-				Delta: &proto.ChatCompletionStreamChoiceDelta{
+				Delta: chat.ChatCompletionStreamChoiceDelta{
 					Content: delta,
 					Role:    ChatMessageRoleAssistant,
 				},
@@ -281,16 +282,16 @@ func (a *app) buildChatCompletionStreamResponse(id, delta, finishReason string) 
 	return res
 }
 
-func (a *app) buildAnswerMetaResponse(id, source string, tokenCount int) *proto.ChatCompletionStreamResponse {
-	return &proto.ChatCompletionStreamResponse{
+func (a *app) buildAnswerMetaResponse(id, source string, tokenCount int) *chat.ChatCompletionStreamResponse {
+	return &chat.ChatCompletionStreamResponse{
 		Id:           id,
 		AnswerSource: source,
 		TokenCount:   int32(tokenCount),
 	}
 }
 
-func (a *app) buildChatCompletionStreamResponseList(id, msg string) []*proto.ChatCompletionStreamResponse {
-	list := make([]*proto.ChatCompletionStreamResponse, 0)
+func (a *app) buildChatCompletionStreamResponseList(id, msg string) []*chat.ChatCompletionStreamResponse {
+	list := make([]*chat.ChatCompletionStreamResponse, 0)
 	runes := []rune(msg)
 	chunkSize := 35
 
@@ -330,7 +331,7 @@ func (a *app) saveContext(value *chat_context.ChatMessage) error {
 	return nil
 }
 
-func (a *app) sensitive(in *proto.ChatCompletionRequest) (ok bool, msg string, err error) {
+func (a *app) sensitive(in *chat.ChatCompletionRequest) (ok bool, msg string, err error) {
 	client, put, err := a.filterClientPool.Get()
 	if err != nil {
 		return false, "", err
@@ -420,7 +421,7 @@ func (a *app) textUpdate(query string, newEntry *chat_round.SemanticCacheEntry) 
 	return round.Update(query, newEntry)
 }
 
-func (a *app) replyStream(message string, stream proto.Chat_ChatCompletionStreamServer) error {
+func (a *app) replyStream(message string, stream *mrpc.StreamServer) error {
 	resId := uuid.New().String()
 	startRes := a.buildChatCompletionStreamResponse(resId, "", "")
 	endRes := a.buildChatCompletionStreamResponse(resId, "", "stop")
@@ -442,7 +443,7 @@ func (a *app) replyStream(message string, stream proto.Chat_ChatCompletionStream
 	return nil
 }
 
-func (a *app) replyStreamWithMeta(message string, source string, tokenCount int, stream proto.Chat_ChatCompletionStreamServer) error {
+func (a *app) replyStreamWithMeta(message string, source string, tokenCount int, stream *mrpc.StreamServer) error {
 
 	resId := uuid.New().String()
 

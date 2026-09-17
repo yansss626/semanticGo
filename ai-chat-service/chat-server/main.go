@@ -3,30 +3,22 @@ package main
 import (
 	chat_context "ai-chat-service/chat-server/chat-context"
 	chat_round "ai-chat-service/chat-server/chat-round"
-	metrics_app "ai-chat-service/chat-server/metrics-app"
 	metrics_bus "ai-chat-service/chat-server/metrics-bus"
 	"ai-chat-service/chat-server/server"
-	"ai-chat-service/interceptor"
+	"ai-chat-service/mrpc_generated/chat"
 	"ai-chat-service/pkg/config"
 	"ai-chat-service/pkg/db/kvstore"
 	"ai-chat-service/pkg/log"
-	"ai-chat-service/proto"
 	keywords_filter "ai-chat-service/services/keywords-filter"
+	"context"
 	"flag"
 	"fmt"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/health"
-	"google.golang.org/grpc/health/grpc_health_v1"
-
-	"net"
+	mrpc "github.com/yansss/mrpc/runtime"
 )
 
 const hnswIndexPath = "./chat-server/chat-round/index-algorithm/data/hnsw.snapshot"
@@ -80,35 +72,17 @@ func main() {
 		}
 	}
 
-	lis, err := net.Listen("tcp", fmt.Sprintf("%s:%d", cnf.Server.IP, cnf.Server.Port))
+	mrpcRegistry := mrpc.NewRegistry()
+	service := server.NewChatService(cnf, logger, busMetrics, contextCache, filterClientPool)
+	err = chat.RegisterChatService(mrpcRegistry, service)
+	if err != nil {
+		panic(err)
+	}
+
+	server := mrpc.NewServer(mrpcRegistry)
+	err = server.Listen(context.Background(), fmt.Sprintf("%s:%d", cnf.Server.IP, cnf.Server.Port))
 	if err != nil {
 		log.Fatal(err)
 	}
-	s := grpc.NewServer(grpc.UnaryInterceptor(interceptor.UnaryAuthInterceptor), grpc.StreamInterceptor(metrics_app.NewStreamMiddleware(registry).WrapHandler()))
-	service := server.NewChatService(cnf, logger, busMetrics, contextCache, filterClientPool)
-	proto.RegisterChatServer(s, service)
 
-	healthCheckSrv := health.NewServer()
-	grpc_health_v1.RegisterHealthServer(s, healthCheckSrv)
-
-	serverErr := make(chan error, 1)
-	go func() {
-		serverErr <- s.Serve(lis)
-	}()
-
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
-
-	select {
-	case err := <-serverErr:
-		if err != nil {
-			log.Fatal(err)
-		}
-	case <-stop:
-		s.GracefulStop()
-		err := chat_round.SaveVectorIndex(hnswIndexPath)
-		if err != nil {
-			log.Error(err)
-		}
-	}
 }
