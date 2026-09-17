@@ -31,4 +31,3 @@ chat:
 dependOn:
   ai-chat-service:
     address: "localhost:50055"
-    accessToken: "me256487ang1chubdpdialoud22sev1ozhoguumyqca"

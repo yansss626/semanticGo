@@ -29,8 +29,7 @@ type Config struct {
 	}
 	DependOn struct {
 		AiChatService struct {
-			Address     string
-			AccessToken string
+			Address string
 		} `mapstructure:"ai-chat-service"`
 	}
 }
