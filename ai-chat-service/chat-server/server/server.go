@@ -7,6 +7,7 @@ import (
 	"ai-chat-service/pkg/config"
 	"ai-chat-service/pkg/log"
 	"ai-chat-service/proto"
+	keywords_filter "ai-chat-service/services/keywords-filter"
 	"ai-chat-service/services/tokenizer"
 	"context"
 	"encoding/json"
@@ -17,24 +18,27 @@ import (
 
 type chatService struct {
 	proto.UnimplementedChatServer
-	config       *config.Config
-	log          log.ILogger
-	busMetrics   *metrics_bus.BusMetrics
-	contextCache chat_context.ContextCache
+	config           *config.Config
+	log              log.ILogger
+	busMetrics       *metrics_bus.BusMetrics
+	contextCache     chat_context.ContextCache
+	filterClientPool *keywords_filter.FilterClientPool
 }
 
-func NewChatService(config *config.Config, log log.ILogger, busMetrics *metrics_bus.BusMetrics, contextCache chat_context.ContextCache) proto.ChatServer {
+func NewChatService(config *config.Config, log log.ILogger, busMetrics *metrics_bus.BusMetrics,
+	contextCache chat_context.ContextCache, filterClientPool *keywords_filter.FilterClientPool) proto.ChatServer {
 	return &chatService{
-		config:       config,
-		log:          log,
-		busMetrics:   busMetrics,
-		contextCache: contextCache,
+		config:           config,
+		log:              log,
+		busMetrics:       busMetrics,
+		contextCache:     contextCache,
+		filterClientPool: filterClientPool,
 	}
 }
 
 func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompletionRequest) (*proto.ChatCompletionResponse, error) {
 
-	app := s.newApp(in, s.contextCache)
+	app := s.newApp(in, s.contextCache, s.filterClientPool)
 	//敏感词过滤
 	ok, msg, err := app.sensitive(in)
 	if err != nil {
@@ -163,7 +167,7 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *proto.ChatCompleti
 }
 func (s *chatService) ChatCompletionStream(in *proto.ChatCompletionRequest, stream proto.Chat_ChatCompletionStreamServer) error {
 
-	app := s.newApp(in, s.contextCache)
+	app := s.newApp(in, s.contextCache, s.filterClientPool)
 	//敏感词过滤
 	ok, msg, err := app.sensitive(in)
 	if err != nil {

@@ -1,19 +1,16 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
-	"keywords-filter/filter-server/interceptor"
 	"keywords-filter/filter-server/server"
+	mrpc_filter "keywords-filter/mrpc_generated/filter"
 	"keywords-filter/pkg/config"
 	"keywords-filter/pkg/filter"
 	"keywords-filter/pkg/log"
-	"keywords-filter/proto"
-	"net"
 
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/health"
-	"google.golang.org/grpc/health/grpc_health_v1"
+	mrpc "github.com/yansss/mrpc/runtime"
 )
 
 var (
@@ -39,18 +36,14 @@ func main() {
 	//初始话filter
 	filter.InitFilter(*dictFile)
 
-	lis, err := net.Listen("tcp", fmt.Sprintf("%s:%d", cnf.Server.IP, cnf.Server.Port))
+	registry := mrpc.NewRegistry()
+	service := server.NewFilterService(filter.GetFilter())
+	err := mrpc_filter.RegisterFilterService(registry, service)
 	if err != nil {
 		log.Fatal(err)
 	}
-	s := grpc.NewServer(grpc.UnaryInterceptor(interceptor.UnaryAuthInterceptor))
-	service := server.NewFilterService(filter.GetFilter())
-	proto.RegisterFilterServer(s, service)
-
-	healthCheckSrv := health.NewServer()
-	grpc_health_v1.RegisterHealthServer(s, healthCheckSrv)
-
-	if err = s.Serve(lis); err != nil {
+	server := mrpc.NewServer(registry)
+	if err = server.Listen(context.Background(), fmt.Sprintf("%s:%d", cnf.Server.IP, cnf.Server.Port)); err != nil {
 		log.Fatal(err)
 	}
 }

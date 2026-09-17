@@ -2,31 +2,31 @@ package server
 
 import (
 	"context"
+	mrpc_filter "keywords-filter/mrpc_generated/filter"
 	"keywords-filter/pkg/filter"
-	"keywords-filter/proto"
 )
 
 type filterService struct {
-	proto.UnimplementedFilterServer
 	filter filter.IFilter
 }
 
-func NewFilterService(filter filter.IFilter) proto.FilterServer {
+func NewFilterService(filter filter.IFilter) *filterService {
 	return &filterService{
 		filter: filter,
 	}
 }
 
-func (s *filterService) Validate(_ context.Context, in *proto.FilterReq) (*proto.ValidateRes, error) {
+func (s *filterService) Validate(ctx context.Context, in *mrpc_filter.FilterRequest) (*mrpc_filter.ValidateResponse, error) {
 	ok, word := s.filter.Validate(in.Text)
-	return &proto.ValidateRes{
+	return &mrpc_filter.ValidateResponse{
 		Ok:      ok,
 		Keyword: word,
 	}, nil
 }
-func (s *filterService) FindAll(_ context.Context, in *proto.FilterReq) (*proto.FindAllRes, error) {
+
+func (s *filterService) FindAll(_ context.Context, in *mrpc_filter.FilterRequest) (*mrpc_filter.FindAllResponse, error) {
 	words := s.filter.FindAll(in.Text)
-	return &proto.FindAllRes{
+	return &mrpc_filter.FindAllResponse{
 		Keywords: words,
 	}, nil
 }

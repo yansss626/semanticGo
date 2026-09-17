@@ -12,6 +12,7 @@ require (
 	github.com/silenceper/pool v1.0.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.19.0
+	github.com/yansss/mrpc v0.0.0-00010101000000-000000000000
 	github.com/yansss626/go-lidis v0.2.0
 	google.golang.org/grpc v1.65.0
 	google.golang.org/protobuf v1.34.2
@@ -57,3 +58,5 @@ require (
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/yansss/mrpc => ../mrpc

@@ -4,12 +4,10 @@ import (
 	chat_context "ai-chat-service/chat-server/chat-context"
 	chat_round "ai-chat-service/chat-server/chat-round"
 	"ai-chat-service/chat-server/chat-round/embedding"
-	"ai-chat-service/pkg/config"
+	"ai-chat-service/mrpc_generated/filter"
 	"ai-chat-service/pkg/zerror"
 	"ai-chat-service/proto"
-	"ai-chat-service/services"
 	keywords_filter "ai-chat-service/services/keywords-filter"
-	keywords_proto "ai-chat-service/services/keywords-filter/proto"
 	"ai-chat-service/services/tokenizer"
 	"context"
 	"time"
@@ -53,10 +51,11 @@ type openaiConf struct {
 type app struct {
 	openaiConf *openaiConf
 	// TODO 内容上下文对象
-	contextCache chat_context.ContextCache
+	contextCache     chat_context.ContextCache
+	filterClientPool *keywords_filter.FilterClientPool
 }
 
-func (s *chatService) newApp(in *proto.ChatCompletionRequest, contextCache chat_context.ContextCache) *app {
+func (s *chatService) newApp(in *proto.ChatCompletionRequest, contextCache chat_context.ContextCache, filterClientPool *keywords_filter.FilterClientPool) *app {
 	conf := &openaiConf{
 		ApiKey:            s.config.Chat.ApiKey,
 		BaseUrl:           s.config.Chat.BaseUrl,
@@ -107,8 +106,9 @@ func (s *chatService) newApp(in *proto.ChatCompletionRequest, contextCache chat_
 		}
 	}
 	return &app{
-		openaiConf:   conf,
-		contextCache: contextCache,
+		openaiConf:       conf,
+		contextCache:     contextCache,
+		filterClientPool: filterClientPool,
 	}
 }
 
@@ -331,20 +331,19 @@ func (a *app) saveContext(value *chat_context.ChatMessage) error {
 }
 
 func (a *app) sensitive(in *proto.ChatCompletionRequest) (ok bool, msg string, err error) {
-	pool := keywords_filter.GetSensitiveClientPool()
-	conn := pool.Get()
-	defer pool.Put(conn)
-	accessToken := config.GetConfig().DependOn.Sensitive.AccessToken
-	client := keywords_proto.NewFilterClient(conn)
-	ctx := services.AppendBearerTokenToContext(context.Background(), accessToken)
-	req := &keywords_proto.FilterReq{
-		Text: in.Message,
-	}
-	res, err := client.Validate(ctx, req)
+	client, put, err := a.filterClientPool.Get()
 	if err != nil {
 		return false, "", err
 	}
-	ok = res.Ok
+	defer put()
+	req := &filter.FilterRequest{
+		Text: in.Message,
+	}
+	resp, err := client.Validate(context.Background(), req)
+	if err != nil {
+		return false, "", err
+	}
+	ok = resp.Ok
 	if !ok {
 		msg = "触发到了知识盲区，请换个问题再问"
 	}

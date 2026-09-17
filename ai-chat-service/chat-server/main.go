@@ -11,6 +11,7 @@ import (
 	"ai-chat-service/pkg/db/kvstore"
 	"ai-chat-service/pkg/log"
 	"ai-chat-service/proto"
+	keywords_filter "ai-chat-service/services/keywords-filter"
 	"flag"
 	"fmt"
 	"net/http"
@@ -56,6 +57,12 @@ func main() {
 	logger.SetOutput(log.GetRotateWriter(cnf.Log.LogPath))
 	logger.SetPrintCaller(true)
 
+	// 初始化敏感词/关键词服务连接池
+	filterClientPool, err := keywords_filter.InitFilterClientPool(cnf)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	// 初始化上下文缓存
 	contextCache, err := chat_context.NewLidisCache(cnf)
 	if err != nil {
@@ -78,7 +85,7 @@ func main() {
 		log.Fatal(err)
 	}
 	s := grpc.NewServer(grpc.UnaryInterceptor(interceptor.UnaryAuthInterceptor), grpc.StreamInterceptor(metrics_app.NewStreamMiddleware(registry).WrapHandler()))
-	service := server.NewChatService(cnf, logger, busMetrics, contextCache)
+	service := server.NewChatService(cnf, logger, busMetrics, contextCache, filterClientPool)
 	proto.RegisterChatServer(s, service)
 
 	healthCheckSrv := health.NewServer()

@@ -1,0 +1,26 @@
+package: filter
+messages:
+  FilterRequest:
+    fields:
+      - name: text
+        type: string
+  ValidateResponse:
+    fields:
+      - name: ok
+        type: bool
+      - name: keyword
+        type: string
+  FindAllResponse:
+    fields:
+      - name: keywords
+        type: string  
+        repeated: true 
+services:
+  FilterService:
+    methods:
+      Validate:
+        request: FilterRequest
+        response: ValidateResponse
+      FindAll: 
+        request: FilterRequest
+        response: FindAllResponse

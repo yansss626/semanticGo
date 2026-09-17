@@ -6,8 +6,6 @@ WORKDIR /src/keywords-filter
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o keywords-filter ./filter-server
 
 FROM quay.io/0voice/alpine:3.18 as stage1
-ADD ./grpc_health_probe-linux-amd64 /usr/bin/grpc_health_probe
-RUN chmod +x /usr/bin/grpc_health_probe
 WORKDIR /app/
 ADD ./dev.config.yaml /app/config.yaml
 ADD ./dict.txt /app/dict.txt
