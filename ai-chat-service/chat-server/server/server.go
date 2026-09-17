@@ -2,7 +2,6 @@ package server
 
 import (
 	chat_context "ai-chat-service/chat-server/chat-context"
-	chat_round "ai-chat-service/chat-server/chat-round"
 	metrics_bus "ai-chat-service/chat-server/metrics-bus"
 	"ai-chat-service/mrpc_generated/chat"
 	"ai-chat-service/pkg/config"
@@ -48,39 +47,6 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *chat.ChatCompletio
 		return res, nil
 	}
 
-	// 相似文本检索
-	var textVector []float32
-	if s.config.Kvstore.Enabled {
-		embeddingResp, err := app.getEmbeddingResponse([]string{in.Message})
-		if err != nil {
-			s.log.Error(err)
-		} else {
-			textVector = embeddingResp.Data[0].Embedding
-			retrievalResult, err := app.textRetrieval(in.Message, textVector)
-			if err != nil {
-				s.log.Error(err)
-			} else {
-				if retrievalResult != nil && retrievalResult.Answer != "" {
-					go func() {
-						newCacheEntry := &chat_round.SemanticCacheEntry{
-							Answer:      retrievalResult.Answer,
-							TotalTokens: retrievalResult.TotalTokens,
-							Vector:      textVector,
-						}
-						err := app.textUpdate(in.Message, newCacheEntry)
-						if err != nil {
-							s.log.Error(err)
-						}
-
-					}()
-
-					resp := app.buildChatCompletionResponse(retrievalResult.Answer, AnswerSourceCache, retrievalResult.TotalTokens)
-					return resp, nil
-				}
-			}
-		}
-	}
-
 	client := app.getOpenaiClientV3()
 	params, _, currTokens, currMessage, contextList, err := app.buildChatCompletionRequestV3(in)
 	if err != nil {
@@ -104,22 +70,6 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *chat.ChatCompletio
 		return nil, err
 	}
 	res.AnswerSource = AnswerSourcePublicModel
-
-	// lidis 缓存更新
-	if s.config.Kvstore.Enabled {
-		go func(vector []float32) {
-			newCacheEntry := &chat_round.SemanticCacheEntry{
-				Answer:      resp.Choices[0].Message.Content,
-				TotalTokens: int(resp.Usage.TotalTokens),
-				Vector:      vector,
-			}
-			err := app.textUpdate(in.Message, newCacheEntry)
-			if err != nil {
-				s.log.Error(err)
-				return
-			}
-		}(textVector)
-	}
 
 	// 保存上下文
 	go func() {
@@ -177,41 +127,6 @@ func (s *chatService) ChatCompletionStream(ctx context.Context, in *chat.ChatCom
 			return err
 		}
 		return nil
-	}
-	// 相似文本检索
-	var textVector []float32
-	if s.config.Kvstore.Enabled {
-		embeddingResp, err := app.getEmbeddingResponse([]string{in.Message})
-		if err != nil {
-			s.log.Error(err)
-		} else {
-			textVector = embeddingResp.Data[0].Embedding
-			retrievalResult, err := app.textRetrieval(in.Message, textVector)
-			if err != nil {
-				s.log.Error(err)
-			} else {
-				if retrievalResult != nil && retrievalResult.Answer != "" {
-					go func() {
-						newCacheEntry := &chat_round.SemanticCacheEntry{
-							Answer:      retrievalResult.Answer,
-							TotalTokens: retrievalResult.TotalTokens,
-							Vector:      textVector,
-						}
-						err := app.textUpdate(in.Message, newCacheEntry)
-						if err != nil {
-							s.log.Error(err)
-						}
-
-					}()
-					err = app.replyStreamWithMeta(retrievalResult.Answer, AnswerSourceCache, retrievalResult.TotalTokens, stream)
-					if err != nil {
-						s.log.Error(err)
-						return err
-					}
-					return nil
-				}
-			}
-		}
 	}
 
 	client := app.getOpenaiClientV3()
@@ -273,21 +188,6 @@ func (s *chatService) ChatCompletionStream(ctx context.Context, in *chat.ChatCom
 	if err != nil {
 		s.log.Error(err)
 		return err
-	}
-
-	if s.config.Kvstore.Enabled {
-		go func(vector []float32) {
-			newCacheEntry := &chat_round.SemanticCacheEntry{
-				Answer:      resultMessage.Content,
-				TotalTokens: totalTokens,
-				Vector:      vector,
-			}
-			err := app.textUpdate(in.Message, newCacheEntry)
-			if err != nil {
-				s.log.Error(err)
-				return
-			}
-		}(textVector)
 	}
 
 	go func() {

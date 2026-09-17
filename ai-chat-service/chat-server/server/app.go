@@ -2,8 +2,6 @@ package server
 
 import (
 	chat_context "ai-chat-service/chat-server/chat-context"
-	chat_round "ai-chat-service/chat-server/chat-round"
-	"ai-chat-service/chat-server/chat-round/embedding"
 	"ai-chat-service/mrpc_generated/chat"
 	"ai-chat-service/mrpc_generated/filter"
 	"ai-chat-service/pkg/zerror"
@@ -71,11 +69,6 @@ func (s *chatService) newApp(in *chat.ChatCompletionRequest, contextCache chat_c
 		MinResponseTokens: s.config.Chat.MinResponseTokens,
 		ThinkingType:      s.config.Chat.ThinkingType,
 		ReasoningEffort:   s.config.Chat.ReasoningEffort,
-
-		EmbeddingApiKey:           s.config.Embedding.ApiKey,
-		EmbeddingBaseUrl:          s.config.Embedding.BaseUrl,
-		EmbeddingVectorDimensions: s.config.Embedding.VectorDimensions,
-		EmbeddingModel:            s.config.Embedding.Model,
 	}
 	if in.ChatParam != nil {
 		if in.ChatParam.Model != "" {
@@ -115,12 +108,6 @@ func (s *chatService) newApp(in *chat.ChatCompletionRequest, contextCache chat_c
 
 func (a *app) getOpenaiClientV3() openai.Client {
 	return openai.NewClient(option.WithAPIKey(a.openaiConf.ApiKey), option.WithBaseURL(a.openaiConf.BaseUrl))
-}
-
-func (a *app) getEmbeddingResponse(texts []string) (*embedding.EmbeddingResponse, error) {
-
-	client := chat_round.GetEmbeddingObject()
-	return client.Get(texts)
 }
 
 func (a *app) buildChatCompletionRequestV3(in *chat.ChatCompletionRequest) (params openai.ChatCompletionNewParams, tokens, currTokens int, currMessage chat_context.ChatMessageContent,
@@ -387,38 +374,6 @@ func (a *app) delExcessContext(contextList []*chat_context.ChatMessage) error {
 	}
 
 	return nil
-}
-func (a *app) textRetrieval(text string, vector []float32) (*chat_round.SemanticCacheEntry, error) {
-	cacheClient, err := chat_round.NewKvstoreCache()
-	if err != nil {
-		return nil, err
-	}
-	defer cacheClient.Close()
-
-	vectorIndex, err := chat_round.GetVectorIndex()
-	if err != nil {
-		return nil, err
-	}
-
-	round := chat_round.GetRoundObject(cacheClient, vectorIndex)
-
-	return round.Retrieval(text, vector)
-}
-
-func (a *app) textUpdate(query string, newEntry *chat_round.SemanticCacheEntry) error {
-	cacheClient, err := chat_round.NewKvstoreCache()
-	if err != nil {
-		return err
-	}
-	defer cacheClient.Close()
-
-	vectorIndex, err := chat_round.GetVectorIndex()
-	if err != nil {
-		return err
-	}
-	round := chat_round.GetRoundObject(cacheClient, vectorIndex)
-
-	return round.Update(query, newEntry)
 }
 
 func (a *app) replyStream(message string, stream *mrpc.StreamServer) error {

@@ -17,8 +17,8 @@ func NewLidisCache(cnf *config.Config) (ContextCache, error) {
 
 	client, err := lidis.NewClient(
 		&lidis.ConnectionPoolConfig{
-			Host: cnf.Kvstore.Host,
-			Port: cnf.Kvstore.Port,
+			Host: cnf.Cache.IP,
+			Port: cnf.Cache.Port,
 		},
 	)
 	if err != nil {

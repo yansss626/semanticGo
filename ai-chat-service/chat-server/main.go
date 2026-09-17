@@ -2,12 +2,10 @@ package main
 
 import (
 	chat_context "ai-chat-service/chat-server/chat-context"
-	chat_round "ai-chat-service/chat-server/chat-round"
 	metrics_bus "ai-chat-service/chat-server/metrics-bus"
 	"ai-chat-service/chat-server/server"
 	"ai-chat-service/mrpc_generated/chat"
 	"ai-chat-service/pkg/config"
-	"ai-chat-service/pkg/db/kvstore"
 	"ai-chat-service/pkg/log"
 	keywords_filter "ai-chat-service/services/keywords-filter"
 	"context"
@@ -59,17 +57,6 @@ func main() {
 	contextCache, err := chat_context.NewLidisCache(cnf)
 	if err != nil {
 		log.Fatal(err)
-	}
-	// 初始化kvstore
-	if cnf.Kvstore.Enabled {
-		kvstore.InitKvstorePool(cnf)
-	}
-	// 初始化向量索引
-	if cnf.Kvstore.Enabled {
-		err := chat_round.InitVectorIndex(hnswIndexPath, cnf.Embedding.VectorDimensions)
-		if err != nil {
-			log.Fatal(err)
-		}
 	}
 
 	mrpcRegistry := mrpc.NewRegistry()

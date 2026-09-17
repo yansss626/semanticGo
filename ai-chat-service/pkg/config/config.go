@@ -31,15 +31,6 @@ type Config struct {
 		ThinkingType      string  `mapstructure:"thinking_type"`
 		ReasoningEffort   string  `mapstructure:"reasoning_effort"`
 	}
-	Kvstore struct {
-		Host        string
-		Port        int
-		Enabled     bool
-		InitialCap  int   `mapstructure:"initial_cap"`
-		MaxIdle     int   `mapstructure:"max_idle"`
-		MaxCap      int   `mapstructure:"max_cap"`
-		IdleTimeout int64 `mapstructure:"idle_timeout"`
-	}
 	DependOn struct {
 		Sensitive struct {
 			Address string
@@ -48,22 +39,10 @@ type Config struct {
 			Address string
 		}
 	}
-	Embedding struct {
-		ApiKey           string  `mapstructure:"api_key"`
-		BaseUrl          string  `mapstructure:"base_url"`
-		Model            string  `mapstructure:"model"`
-		VectorDimensions int     `mapstructure:"vector_dimensions"`
-		RecallScore      float64 `mapstructure:"recall_score"`
-		Distance         int
-	}
-	Rerank struct {
-		ApiKey      string  `mapstructure:"api_key"`
-		BaseUrl     string  `mapstructure:"base_url"`
-		Model       string  `mapstructure:"model"`
-		Instruct    string  `mapstructure:"instruct"`
-		TopK        int     `mapstructure:"topK"`
-		RerankScore float64 `mapstructure:"rerank_score"`
-	}
+	Cache struct {
+		IP   string `mapstructure:"ip"`
+		Port int    `mapstructure:"port"`
+	} `mapstructure:"cache"`
 }
 
 var conf *Config
