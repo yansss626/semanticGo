@@ -9,7 +9,6 @@ import (
 	keywords_filter "ai-chat-service/services/keywords-filter"
 	"ai-chat-service/services/tokenizer"
 	"context"
-	"encoding/json"
 
 	mrpc "github.com/yansss/mrpc/runtime"
 )
@@ -58,17 +57,7 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *chat.ChatCompletio
 		s.log.Error(err)
 		return nil, err
 	}
-	res := &chat.ChatCompletionResponse{}
-	bytes, err := json.Marshal(resp)
-	if err != nil {
-		s.log.Error(err)
-		return nil, err
-	}
-	err = json.Unmarshal(bytes, res)
-	if err != nil {
-		s.log.Error(err)
-		return nil, err
-	}
+	res := convertChatCompletion(resp)
 	res.AnswerSource = AnswerSourcePublicModel
 
 	// 保存上下文
@@ -151,10 +140,8 @@ func (s *chatService) ChatCompletionStream(ctx context.Context, in *chat.ChatCom
 		}
 		content := resp.Choices[0].Delta.Content
 		completionContent += content
-		res := &chat.ChatCompletionStreamResponse{}
-		rawJson := resp.RawJSON()
-		err := json.Unmarshal([]byte(rawJson), res)
 
+		res := convertChatCompletionChunk(resp)
 		err = stream.Send(res)
 		if err != nil {
 			s.log.Error(err)

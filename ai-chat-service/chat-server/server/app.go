@@ -269,6 +269,75 @@ func (a *app) buildChatCompletionStreamResponse(id, delta, finishReason string) 
 	return res
 }
 
+func convertChatCompletion(src *openai.ChatCompletion) *chat.ChatCompletionResponse {
+	return &chat.ChatCompletionResponse{
+		Id:      src.ID,
+		Object:  string(src.Object),
+		Model:   src.Model,
+		Choices: convertChoice(src.Choices),
+		Usage:   convertUsage(src.Usage),
+		Created: src.Created,
+	}
+}
+
+func convertChoice(src []openai.ChatCompletionChoice) []*chat.ChatCompletionChoice {
+	choices := make([]*chat.ChatCompletionChoice, 0, len(src))
+	for _, item := range src {
+		choice := &chat.ChatCompletionChoice{
+			Index:        int32(item.Index),
+			Message:      convertMessage(item.Message),
+			FinishReason: item.FinishReason,
+		}
+		choices = append(choices, choice)
+	}
+	return choices
+}
+
+func convertMessage(src openai.ChatCompletionMessage) chat.ChatCompletionMessage {
+	return chat.ChatCompletionMessage{
+		Role:    string(src.Role),
+		Content: src.Content,
+	}
+}
+
+func convertUsage(src openai.CompletionUsage) *chat.Usage {
+	return &chat.Usage{
+		PromptTokens:     int32(src.PromptTokens),
+		CompletionTokens: int32(src.CompletionTokens),
+		TotalTokens:      int32(src.TotalTokens),
+	}
+}
+
+func convertChatCompletionChunk(src openai.ChatCompletionChunk) *chat.ChatCompletionStreamResponse {
+	return &chat.ChatCompletionStreamResponse{
+		Id:      src.ID,
+		Object:  string(src.Object),
+		Model:   src.Model,
+		Created: src.Created,
+		Choices: convertChatCompletionStreamChoice(src.Choices),
+	}
+}
+
+func convertChatCompletionStreamChoice(src []openai.ChatCompletionChunkChoice) []*chat.ChatCompletionStreamChoice {
+	choices := make([]*chat.ChatCompletionStreamChoice, 0, len(src))
+	for _, item := range src {
+		choice := &chat.ChatCompletionStreamChoice{
+			Index:        int32(item.Index),
+			FinishReason: item.FinishReason,
+			Delta:        convertChatCompletionStreamChoiceDelta(item.Delta),
+		}
+		choices = append(choices, choice)
+	}
+	return choices
+}
+
+func convertChatCompletionStreamChoiceDelta(src openai.ChatCompletionChunkChoiceDelta) chat.ChatCompletionStreamChoiceDelta {
+	return chat.ChatCompletionStreamChoiceDelta{
+		Content: src.Content,
+		Role:    src.Role,
+	}
+}
+
 func (a *app) buildAnswerMetaResponse(id, source string, tokenCount int) *chat.ChatCompletionStreamResponse {
 	return &chat.ChatCompletionStreamResponse{
 		Id:           id,
