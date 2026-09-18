@@ -21,15 +21,27 @@ type chatService struct {
 	filterClientPool *keywords_filter.FilterClientPool
 }
 
-func NewChatService(config *config.Config, log log.ILogger, busMetrics *metrics_bus.BusMetrics,
-	contextCache chat_context.ContextCache, filterClientPool *keywords_filter.FilterClientPool) *chatService {
+func NewChatService(config *config.Config, log log.ILogger, busMetrics *metrics_bus.BusMetrics) (*chatService, error) {
+
+	// 初始化敏感词/关键词服务 连接池
+	filterClientPool, err := keywords_filter.InitFilterClientPool(config)
+	if err != nil {
+		return nil, err
+	}
+
+	// 初始化上下文缓存
+	contextCache, err := chat_context.NewLidisCache(config)
+	if err != nil {
+		return nil, err
+	}
+
 	return &chatService{
 		config:           config,
 		log:              log,
 		busMetrics:       busMetrics,
 		contextCache:     contextCache,
 		filterClientPool: filterClientPool,
-	}
+	}, nil
 }
 
 func (s *chatService) ChatCompletion(ctx context.Context, in *chat.ChatCompletionRequest) (*chat.ChatCompletionResponse, error) {

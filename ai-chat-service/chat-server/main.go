@@ -1,13 +1,11 @@
 package main
 
 import (
-	chat_context "ai-chat-service/chat-server/chat-context"
 	metrics_bus "ai-chat-service/chat-server/metrics-bus"
 	"ai-chat-service/chat-server/server"
 	"ai-chat-service/mrpc_generated/chat"
 	"ai-chat-service/pkg/config"
 	"ai-chat-service/pkg/log"
-	keywords_filter "ai-chat-service/services/keywords-filter"
 	"context"
 	"flag"
 	"fmt"
@@ -47,20 +45,11 @@ func main() {
 	logger.SetOutput(log.GetRotateWriter(cnf.Log.LogPath))
 	logger.SetPrintCaller(true)
 
-	// 初始化敏感词/关键词服务连接池
-	filterClientPool, err := keywords_filter.InitFilterClientPool(cnf)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// 初始化上下文缓存
-	contextCache, err := chat_context.NewLidisCache(cnf)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	mrpcRegistry := mrpc.NewRegistry()
-	service := server.NewChatService(cnf, logger, busMetrics, contextCache, filterClientPool)
+	service, err := server.NewChatService(cnf, logger, busMetrics)
+	if err != nil {
+		log.Fatal(err)
+	}
 	err = chat.RegisterChatService(mrpcRegistry, service)
 	if err != nil {
 		panic(err)
