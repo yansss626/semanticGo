@@ -31,4 +31,3 @@ chat:
 dependOn:
   ai-chat-service:
     address: "ai-chat-service:50051"
-    accessToken: "me256487ang1chubdpdialoud22sev1ozhoguumyqca"

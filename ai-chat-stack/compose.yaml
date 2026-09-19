@@ -26,12 +26,6 @@ services:
         order: start-first
     entrypoint: ["./keywords-filter"]
     command: ["--config=config.yaml","--dict=dict.txt"]
-    healthcheck:
-      test: [ "CMD","grpc_health_probe","-addr=:50051" ]
-      interval: 5s
-      timeout: 1s
-      retries: 3
-      start_period: 1s
     configs:
       - source: sensitive-conf
         target: /app/config.yaml
@@ -51,12 +45,6 @@ services:
         order: start-first
     entrypoint: [ "./ai-chat-service" ]
     command: [ "--config=config.yaml" ]
-    healthcheck:
-      test: [ "CMD","grpc_health_probe","-addr=:50051" ]
-      interval: 5s
-      timeout: 1s
-      retries: 3
-      start_period: 1s
     configs:
       - source: ai-chat-service-conf
         target: /app/config.yaml
@@ -86,10 +74,6 @@ services:
       - source: ai-chat-backend-conf
         target: /app/config.yaml
 configs:
-  keywords-conf:
-    file: ./configs/keywords.yaml
-  keywords-dict:
-    file: ./configs/keywords-dict.txt
   sensitive-conf:
     file: ./configs/sensitive.yaml
   sensitive-dict:
