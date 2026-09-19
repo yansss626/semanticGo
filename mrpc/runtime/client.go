@@ -243,7 +243,10 @@ func (c *Client) handleStreamEnd(requestID uint64, payload []byte) {
 	}
 	stream.recvCh <- streamResult{
 		response: resp,
-		err:      io.EOF,
+	}
+
+	stream.recvCh <- streamResult{
+		err: io.EOF,
 	}
 
 }
