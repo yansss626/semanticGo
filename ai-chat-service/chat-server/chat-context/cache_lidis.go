@@ -9,13 +9,12 @@ import (
 	"github.com/yansss626/go-lidis"
 )
 
-type lidisCache struct {
-	lidisClient *lidis.Client
+type cacheLidis struct {
+	pool *lidis.ClientPool
 }
 
-func NewLidisCache(cnf *config.Config) (ContextCache, error) {
-
-	client, err := lidis.NewClient(
+func NewContextCache(cnf *config.Config) (ContextCache, error) {
+	clientPool, err := lidis.NewClientPool(
 		&lidis.ConnectionPoolConfig{
 			Host: cnf.Cache.IP,
 			Port: cnf.Cache.Port,
@@ -24,8 +23,8 @@ func NewLidisCache(cnf *config.Config) (ContextCache, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &lidisCache{
-		lidisClient: client,
+	return &cacheLidis{
+		pool: clientPool,
 	}, nil
 }
 
@@ -33,9 +32,15 @@ func getContextKey(key string) string {
 	return cache_key.GetKey("context", key)
 }
 
-func (l *lidisCache) GetContext(key string) (*ChatMessage, error) {
+func (l *cacheLidis) GetContext(key string) (*ChatMessage, error) {
+	client, release, err := l.pool.Get()
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+
 	key = getContextKey(key)
-	value, err := l.lidisClient.HashGet(key)
+	value, err := client.HashGet(key)
 	if err != nil {
 		return nil, err
 	}
@@ -51,19 +56,31 @@ func (l *lidisCache) GetContext(key string) (*ChatMessage, error) {
 	return message, nil
 }
 
-func (l *lidisCache) SetContext(key string, message *ChatMessage) error {
+func (l *cacheLidis) SetContext(key string, message *ChatMessage) error {
+	client, release, err := l.pool.Get()
+	if err != nil {
+		return err
+	}
+	defer release()
+
 	key = getContextKey(key)
 	value, err := json.Marshal(message)
 	if err != nil {
 		return err
 	}
 
-	_, err = l.lidisClient.HashSet(key, string(value))
+	_, err = client.HashSet(key, string(value))
 	return err
 }
 
-func (l *lidisCache) DelContext(key string) error {
+func (l *cacheLidis) DelContext(key string) error {
+	client, release, err := l.pool.Get()
+	if err != nil {
+		return err
+	}
+	defer release()
+
 	key = getContextKey(key)
-	_, err := l.lidisClient.HashDel(key)
+	_, err = client.HashDel(key)
 	return err
 }

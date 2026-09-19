@@ -30,7 +30,7 @@ func NewChatService(config *config.Config, log log.ILogger, busMetrics *metrics_
 	}
 
 	// 初始化上下文缓存
-	contextCache, err := chat_context.NewLidisCache(config)
+	contextCache, err := chat_context.NewContextCache(config)
 	if err != nil {
 		return nil, err
 	}
