@@ -7,6 +7,7 @@ import (
 	"ai-chat-service/pkg/config"
 	"ai-chat-service/pkg/log"
 	keywords_filter "ai-chat-service/services/keywords-filter"
+	"ai-chat-service/services/reprise"
 	"ai-chat-service/services/tokenizer"
 	"context"
 
@@ -14,17 +15,24 @@ import (
 )
 
 type chatService struct {
-	config           *config.Config
-	log              log.ILogger
-	busMetrics       *metrics_bus.BusMetrics
-	contextCache     chat_context.ContextCache
-	filterClientPool *keywords_filter.FilterClientPool
+	config            *config.Config
+	log               log.ILogger
+	busMetrics        *metrics_bus.BusMetrics
+	contextCache      chat_context.ContextCache
+	filterClientPool  *keywords_filter.FilterClientPool
+	repriseClientPool *reprise.RepriseClientPool
 }
 
 func NewChatService(config *config.Config, log log.ILogger, busMetrics *metrics_bus.BusMetrics) (*chatService, error) {
 
 	// 初始化敏感词/关键词服务 连接池
 	filterClientPool, err := keywords_filter.InitFilterClientPool(config)
+	if err != nil {
+		return nil, err
+	}
+
+	// 初始化语义缓存服务 连接池
+	repriseClientPool, err := reprise.InitRepriseClientPool(config)
 	if err != nil {
 		return nil, err
 	}
@@ -36,18 +44,19 @@ func NewChatService(config *config.Config, log log.ILogger, busMetrics *metrics_
 	}
 
 	return &chatService{
-		config:           config,
-		log:              log,
-		busMetrics:       busMetrics,
-		contextCache:     contextCache,
-		filterClientPool: filterClientPool,
+		config:            config,
+		log:               log,
+		busMetrics:        busMetrics,
+		contextCache:      contextCache,
+		filterClientPool:  filterClientPool,
+		repriseClientPool: repriseClientPool,
 	}, nil
 }
 
 func (s *chatService) ChatCompletion(ctx context.Context, in *chat.ChatCompletionRequest) (*chat.ChatCompletionResponse, error) {
 
-	app := s.newApp(in, s.contextCache, s.filterClientPool)
-	//敏感词过滤
+	app := s.newApp(in, s.contextCache, s.filterClientPool, s.repriseClientPool)
+	// 敏感词过滤
 	ok, msg, err := app.sensitive(in)
 	if err != nil {
 		s.log.Error(err)
@@ -58,6 +67,17 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *chat.ChatCompletio
 		return res, nil
 	}
 
+	// 查询语义缓存，是否能够复用缓存答案？
+	semanticResp, err := app.searchSementicCache(in)
+	if err != nil {
+		s.log.Error(err)
+	}
+	if semanticResp != nil && semanticResp.Answer != "" { // 如果能复用，直接返回，不走大模型
+		res := app.buildChatCompletionResponse(semanticResp.Answer, AnswerSourceCache, semanticResp.TotalTokens)
+		return res, nil
+	}
+
+	// 访问大模型：大模型服务
 	client := app.getOpenaiClientV3()
 	params, _, currTokens, currMessage, contextList, err := app.buildChatCompletionRequestV3(in)
 	if err != nil {
@@ -70,7 +90,16 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *chat.ChatCompletio
 		return nil, err
 	}
 	res := convertChatCompletion(resp)
-	res.AnswerSource = AnswerSourcePublicModel
+	res.AnswerSource = AnswerSourcePublicModel // 标注大模型回答
+
+	// 语义缓存更新
+	go func() {
+		err := app.addSemanticCache(in, res.Choices[0].Message.Content, res.Usage.TotalTokens)
+		if err != nil {
+			s.log.Error()
+			return
+		}
+	}()
 
 	// 保存上下文
 	go func() {
@@ -112,7 +141,7 @@ func (s *chatService) ChatCompletion(ctx context.Context, in *chat.ChatCompletio
 }
 func (s *chatService) ChatCompletionStream(ctx context.Context, in *chat.ChatCompletionRequest, stream *mrpc.StreamServer) error {
 
-	app := s.newApp(in, s.contextCache, s.filterClientPool)
+	app := s.newApp(in, s.contextCache, s.filterClientPool, s.repriseClientPool)
 	//敏感词过滤
 	ok, msg, err := app.sensitive(in)
 	if err != nil {
@@ -130,6 +159,22 @@ func (s *chatService) ChatCompletionStream(ctx context.Context, in *chat.ChatCom
 		return nil
 	}
 
+	// 查询语义缓存，是否能够复用缓存答案？
+	semanticResp, err := app.searchSementicCache(in)
+	if err != nil {
+		s.log.Error(err)
+	}
+	if semanticResp != nil && semanticResp.Answer != "" {
+		err := app.replyStreamWithMeta(semanticResp.Answer, AnswerSourceCache, semanticResp.TotalTokens, stream)
+		if err != nil {
+			s.log.Error(err)
+			return err
+		}
+		return nil // 如果能复用，直接返回，不走大模型
+	}
+
+	// 访问大模型：大模型服务 (流式响应)
+	// params：访问大模型的请求； tokens：请求总 token（包括上下文 + prompt）；currTokens：prompt token，
 	client := app.getOpenaiClientV3()
 	params, tokens, currTokens, currMessage, contextList, err := app.buildChatCompletionRequestV3(in)
 	if err != nil {
@@ -166,6 +211,7 @@ func (s *chatService) ChatCompletionStream(ctx context.Context, in *chat.ChatCom
 		return err
 	}
 
+	// 计算响应 token
 	resultMessage := chat_context.ChatMessageContent{
 		Role:    ChatMessageRoleAssistant,
 		Content: completionContent,
@@ -181,14 +227,24 @@ func (s *chatService) ChatCompletionStream(ctx context.Context, in *chat.ChatCom
 		return err
 	}
 
-	totalTokens := resultTokens + tokens
-	ansMeta := app.buildAnswerMetaResponse(resultID, AnswerSourcePublicModel, totalTokens)
+	totalTokens := resultTokens + tokens                                                          // 计算耗费总 token
+	ansMeta := app.buildAnswerMetaResponse(resultID, AnswerSourcePublicModel, int32(totalTokens)) // 标注大模型回答
 	err = stream.Send(ansMeta)
 	if err != nil {
 		s.log.Error(err)
 		return err
 	}
 
+	// 语义缓存更新
+	go func() {
+		err := app.addSemanticCache(in, completionContent, int32(totalTokens))
+		if err != nil {
+			s.log.Error()
+			return
+		}
+	}()
+
+	// 保存上下文
 	go func() {
 		reqContext := &chat_context.ChatMessage{
 			ID:      in.Id,

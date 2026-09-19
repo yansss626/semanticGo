@@ -38,6 +38,9 @@ type Config struct {
 		Tokenizer struct {
 			Address string
 		}
+		Semantic struct {
+			Address string
+		}
 	}
 	Cache struct {
 		IP   string `mapstructure:"ip"`

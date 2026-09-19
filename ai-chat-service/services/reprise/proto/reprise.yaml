@@ -1,0 +1,40 @@
+package: semantic
+messages:
+  VSetRequest:
+    fields:
+    - name: text
+      type: string
+
+    - name: answer
+      type: string
+
+    - name: totalTokens
+      type: int32
+      json_name: total_tokens
+
+  VSetResponse:
+    fields:
+
+  VGetRequest:
+    fields:
+    - name: text
+      type: string
+
+  VGetResponse:
+    fields:
+    - name: answer
+      type: string
+
+    - name: totalTokens
+      type: int32  
+      json_name: total_tokens
+
+services:
+  SemanticService:
+    methods:
+      VSet:
+        request: VSetRequest
+        response: VSetResponse
+      VGet:
+        request: VGetRequest
+        response: VGetResponse

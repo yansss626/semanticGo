@@ -43,6 +43,8 @@ dependOn:
     address: "localhost:50053"
   tokenizer:
     address: "http://192.168.184.138:3002"
+  semantic:
+    address: "localhost:6666"
 cache:
   ip: 192.168.184.138
   port: 2000

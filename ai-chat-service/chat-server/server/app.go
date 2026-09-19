@@ -4,8 +4,10 @@ import (
 	chat_context "ai-chat-service/chat-server/chat-context"
 	"ai-chat-service/mrpc_generated/chat"
 	"ai-chat-service/mrpc_generated/filter"
+	"ai-chat-service/mrpc_generated/semantic"
 	"ai-chat-service/pkg/zerror"
 	keywords_filter "ai-chat-service/services/keywords-filter"
+	"ai-chat-service/services/reprise"
 	"ai-chat-service/services/tokenizer"
 	"context"
 	"time"
@@ -50,11 +52,13 @@ type openaiConf struct {
 type app struct {
 	openaiConf *openaiConf
 	// TODO 内容上下文对象
-	contextCache     chat_context.ContextCache
-	filterClientPool *keywords_filter.FilterClientPool
+	contextCache      chat_context.ContextCache
+	filterClientPool  *keywords_filter.FilterClientPool
+	repriseClientPool *reprise.RepriseClientPool
 }
 
-func (s *chatService) newApp(in *chat.ChatCompletionRequest, contextCache chat_context.ContextCache, filterClientPool *keywords_filter.FilterClientPool) *app {
+func (s *chatService) newApp(in *chat.ChatCompletionRequest, contextCache chat_context.ContextCache,
+	filterClientPool *keywords_filter.FilterClientPool, repriseClientPool *reprise.RepriseClientPool) *app {
 	conf := &openaiConf{
 		ApiKey:            s.config.Chat.ApiKey,
 		BaseUrl:           s.config.Chat.BaseUrl,
@@ -100,16 +104,19 @@ func (s *chatService) newApp(in *chat.ChatCompletionRequest, contextCache chat_c
 		}
 	}
 	return &app{
-		openaiConf:       conf,
-		contextCache:     contextCache,
-		filterClientPool: filterClientPool,
+		openaiConf:        conf,
+		contextCache:      contextCache,
+		filterClientPool:  filterClientPool,
+		repriseClientPool: repriseClientPool,
 	}
 }
 
+// 获取大模型客户端
 func (a *app) getOpenaiClientV3() openai.Client {
 	return openai.NewClient(option.WithAPIKey(a.openaiConf.ApiKey), option.WithBaseURL(a.openaiConf.BaseUrl))
 }
 
+// 构造大模型请求
 func (a *app) buildChatCompletionRequestV3(in *chat.ChatCompletionRequest) (params openai.ChatCompletionNewParams, tokens, currTokens int, currMessage chat_context.ChatMessageContent,
 	contextList []*chat_context.ChatMessage, err error) {
 
@@ -173,6 +180,7 @@ func (a *app) buildChatCompletionRequestV3(in *chat.ChatCompletionRequest) (para
 	return
 }
 
+// 根据上下文重构请求
 func (a *app) rebuildMessages(contextList []*chat_context.ChatMessage, currMessage chat_context.ChatMessageContent) (tokens, currTokens int, messages []chat_context.ChatMessageContent, err error) {
 
 	// 用户 prompt
@@ -224,7 +232,9 @@ func (a *app) rebuildMessages(contextList []*chat_context.ChatMessage, currMessa
 
 	return
 }
-func (a *app) buildChatCompletionResponse(msg string, AnswerSource string, totalTokens int) *chat.ChatCompletionResponse {
+
+// 构造非流式响应
+func (a *app) buildChatCompletionResponse(msg string, AnswerSource string, totalTokens int32) *chat.ChatCompletionResponse {
 	res := &chat.ChatCompletionResponse{
 		Id:      uuid.New().String(),
 		Object:  "chat.completion",
@@ -242,13 +252,14 @@ func (a *app) buildChatCompletionResponse(msg string, AnswerSource string, total
 		Usage: &chat.Usage{
 			PromptTokens:     0,
 			CompletionTokens: 0,
-			TotalTokens:      int32(totalTokens),
+			TotalTokens:      totalTokens,
 		},
 		AnswerSource: AnswerSource,
 	}
 	return res
 }
 
+// 构造流式响应
 func (a *app) buildChatCompletionStreamResponse(id, delta, finishReason string) *chat.ChatCompletionStreamResponse {
 	res := &chat.ChatCompletionStreamResponse{
 		Id:      id,
@@ -338,14 +349,16 @@ func convertChatCompletionStreamChoiceDelta(src openai.ChatCompletionChunkChoice
 	}
 }
 
-func (a *app) buildAnswerMetaResponse(id, source string, tokenCount int) *chat.ChatCompletionStreamResponse {
+// 构造响应元数据
+func (a *app) buildAnswerMetaResponse(id, source string, tokenCount int32) *chat.ChatCompletionStreamResponse {
 	return &chat.ChatCompletionStreamResponse{
 		Id:           id,
 		AnswerSource: source,
-		TokenCount:   int32(tokenCount),
+		TokenCount:   tokenCount,
 	}
 }
 
+// 构造缓存命中流式响应切片
 func (a *app) buildChatCompletionStreamResponseList(id, msg string) []*chat.ChatCompletionStreamResponse {
 	list := make([]*chat.ChatCompletionStreamResponse, 0)
 	runes := []rune(msg)
@@ -362,6 +375,7 @@ func (a *app) buildChatCompletionStreamResponseList(id, msg string) []*chat.Chat
 	return list
 }
 
+// 获取上下文
 func (a *app) getContext(id string) ([]*chat_context.ChatMessage, error) {
 	maxLen := a.openaiConf.ContextLen
 	list := make([]*chat_context.ChatMessage, 0, maxLen)
@@ -379,6 +393,8 @@ func (a *app) getContext(id string) ([]*chat_context.ChatMessage, error) {
 	}
 	return list, nil
 }
+
+// 保存上下文
 func (a *app) saveContext(value *chat_context.ChatMessage) error {
 	err := a.contextCache.SetContext(value.ID, value)
 	if err != nil {
@@ -387,6 +403,7 @@ func (a *app) saveContext(value *chat_context.ChatMessage) error {
 	return nil
 }
 
+// 敏感词过滤
 func (a *app) sensitive(in *chat.ChatCompletionRequest) (ok bool, msg string, err error) {
 	client, put, err := a.filterClientPool.Get()
 	if err != nil {
@@ -407,6 +424,7 @@ func (a *app) sensitive(in *chat.ChatCompletionRequest) (ok bool, msg string, er
 	return
 }
 
+// 裁剪多余上下文
 func (a *app) delExcessContext(contextList []*chat_context.ChatMessage) error {
 	maxLen := a.openaiConf.ContextLen
 	totalLen := len(contextList)
@@ -445,6 +463,7 @@ func (a *app) delExcessContext(contextList []*chat_context.ChatMessage) error {
 	return nil
 }
 
+// 流式回复
 func (a *app) replyStream(message string, stream *mrpc.StreamServer) error {
 	resId := uuid.New().String()
 	startRes := a.buildChatCompletionStreamResponse(resId, "", "")
@@ -467,7 +486,8 @@ func (a *app) replyStream(message string, stream *mrpc.StreamServer) error {
 	return nil
 }
 
-func (a *app) replyStreamWithMeta(message string, source string, tokenCount int, stream *mrpc.StreamServer) error {
+// 流式回复 + 元数据
+func (a *app) replyStreamWithMeta(message string, source string, tokenCount int32, stream *mrpc.StreamServer) error {
 
 	resId := uuid.New().String()
 
@@ -502,4 +522,39 @@ func (a *app) replyStreamWithMeta(message string, source string, tokenCount int,
 	}
 
 	return nil
+}
+
+// 搜索语义缓存内容
+func (a *app) searchSementicCache(in *chat.ChatCompletionRequest) (*semantic.VGetResponse, error) {
+	client, put, err := a.repriseClientPool.Get()
+	if err != nil {
+		return nil, err
+	}
+	defer put()
+
+	req := &semantic.VGetRequest{
+		Text: in.Message,
+	}
+	resp, err := client.VGet(context.Background(), req)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// 语义缓存更新
+func (a *app) addSemanticCache(in *chat.ChatCompletionRequest, answer string, totalTokens int32) error {
+	client, put, err := a.repriseClientPool.Get()
+	if err != nil {
+		return err
+	}
+	defer put()
+
+	req := &semantic.VSetRequest{
+		Text:        in.Message,
+		Answer:      answer,
+		TotalTokens: totalTokens,
+	}
+	_, err = client.VSet(context.Background(), req)
+	return err
 }
