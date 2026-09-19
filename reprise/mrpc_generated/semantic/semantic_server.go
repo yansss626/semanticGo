@@ -8,15 +8,15 @@ import (
 	mrpc "github.com/yansss/mrpc/runtime"
 )
 
-type Semantic interface {
+type SemanticService interface {
 	VGet(ctx context.Context, req *VGetRequest) (*VGetResponse, error)
 
 	VSet(ctx context.Context, req *VSetRequest) (*VSetResponse, error)
 }
 
-func RegisterSemantic(registry *mrpc.Registry, service Semantic) error {
+func RegisterSemanticService(registry *mrpc.Registry, service SemanticService) error {
 
-	registry.Register("Semantic", "VGet",
+	registry.Register("SemanticService", "VGet",
 		mrpc.MethodHandler{
 			UnaryHandler: func(ctx context.Context, data json.RawMessage) (any, error) {
 				req := &VGetRequest{}
@@ -29,7 +29,7 @@ func RegisterSemantic(registry *mrpc.Registry, service Semantic) error {
 		},
 	)
 
-	registry.Register("Semantic", "VSet",
+	registry.Register("SemanticService", "VSet",
 		mrpc.MethodHandler{
 			UnaryHandler: func(ctx context.Context, data json.RawMessage) (any, error) {
 				req := &VSetRequest{}

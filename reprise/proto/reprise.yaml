@@ -30,7 +30,7 @@ messages:
       json_name: total_tokens
 
 services:
-  Semantic:
+  SemanticService:
     methods:
       VSet:
         request: VSetRequest

@@ -41,7 +41,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	err = semantic.RegisterSemantic(registry, service)
+	err = semantic.RegisterSemanticService(registry, service)
 	if err != nil {
 		panic(err)
 	}
