@@ -15,7 +15,7 @@ import (
 	"github.com/google/uuid"
 	openai "github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
-	mrpc "github.com/yansss/mrpc/runtime"
+	mrpc "github.com/yansss626/mrpc/runtime"
 )
 
 const ChatPrimedTokens = 2

@@ -12,7 +12,7 @@ import (
 	"reprise/server"
 	"syscall"
 
-	mrpc "github.com/yansss/mrpc/runtime"
+	mrpc "github.com/yansss626/mrpc/runtime"
 )
 
 var (

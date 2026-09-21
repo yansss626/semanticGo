@@ -10,7 +10,7 @@ import (
 	"keywords-filter/pkg/filter"
 	"keywords-filter/pkg/log"
 
-	mrpc "github.com/yansss/mrpc/runtime"
+	mrpc "github.com/yansss626/mrpc/runtime"
 )
 
 var (

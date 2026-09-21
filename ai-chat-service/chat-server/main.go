@@ -14,7 +14,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	mrpc "github.com/yansss/mrpc/runtime"
+	mrpc "github.com/yansss626/mrpc/runtime"
 )
 
 const hnswIndexPath = "./chat-server/chat-round/index-algorithm/data/hnsw.snapshot"
