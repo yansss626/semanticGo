@@ -11,7 +11,7 @@ import (
 	"ai-chat-service/services/tokenizer"
 	"context"
 
-	mrpc "github.com/yansss626/mrpc/runtime"
+	mrpc "github.com/yansss626/go-mrpc/runtime"
 )
 
 type chatService struct {

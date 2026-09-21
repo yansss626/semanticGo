@@ -7,7 +7,7 @@ import (
 	"net"
 	"strconv"
 
-	mrpc "github.com/yansss626/mrpc/runtime"
+	mrpc "github.com/yansss626/go-mrpc/runtime"
 )
 
 type FilterClientPool struct {

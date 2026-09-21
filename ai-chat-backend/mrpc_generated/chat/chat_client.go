@@ -3,7 +3,7 @@ package chat
 import (
 	"context"
 
-	mrpc "github.com/yansss626/mrpc/runtime"
+	mrpc "github.com/yansss626/go-mrpc/runtime"
 )
 
 type ChatServiceClient struct {
