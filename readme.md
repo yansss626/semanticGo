@@ -20,14 +20,14 @@
 
 ## 2. 系统架构图
 
-[![image-20260905182318425.png](https://i.postimg.cc/8CNwb3HK/image-20260905182318425.png)](https://postimg.cc/0zXpkVhD)
+[![Screenshot-2026-09-23-204115.png](https://i.postimg.cc/zv35NRSw/Screenshot-2026-09-23-204115.png)](https://postimg.cc/V0y2Bvh5)
 
 
 
 ## 3. 项目目录结构
 
 ```text	
-SemanticGo
+semanticGo
 ├── ai-chat-web
 │   └── Vue3 + Vite 前端
 │
@@ -35,10 +35,13 @@ SemanticGo
 │   └── 网关层
 │
 ├── ai-chat-service
-│   └── 业务层/微服务 （语义缓存 + Redis 上下文管理）
+│   └── 业务服务层
 │
 ├── keywords-filter
 │   └── 敏感词过滤
+│
+├── reprise
+│   └── 语义缓存
 │
 ├── openai-api-proxy
 │   └── 大语言模型 API 代理
@@ -158,11 +161,11 @@ Cached Answer
 
 注： 
 
-1. `Embedding` 模型可在配置文件 `ai-chat-service/dev_config.yaml` 中选择第三方模型参数，需要填入密钥，URL，以及模型等参数，也可以在本地部署。
-2. `Rerank` 模型可在配置文件 `ai-chat-service/dev_config.yaml `中选择第三方模型参数需要填入密钥，URL，以及模型等参数，也可以在本地部署。
+1. `Embedding` 模型可在配置文件 `reprise/dev_config.yaml` 中选择第三方模型参数，需要填入密钥，URL，以及模型等参数，也可以在本地部署。
+2. `Rerank` 模型可在配置文件 `reprise/dev_config.yaml `中选择第三方模型参数需要填入密钥，URL，以及模型等参数，也可以在本地部署。
 3. `HNSW` 算法基于开源项目`"github.com/fogfish/hnsw"`实现。
 4. 目前语义缓存基于单轮  `Query`  进行语义匹配，属于无状态语义缓存。
-5. 实现完整逻辑位于  `ai-chat-service/chat-server/chat-round`文件夹下。
+5. 实现完整逻辑位于  `reprise`文件夹下。
 
 
 
