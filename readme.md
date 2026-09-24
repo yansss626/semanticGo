@@ -198,15 +198,11 @@ Cached Answer
 
 ## 5. 部署/启动方式
 
-支持单服务启动和 `Docker` 容器化部署两种方式。
+支持单点启动和 Docker Swarm 集群部署两种方式。
 
 
 
-### 5.1 单服务启动：
-
-各服务可根据实际需求独立启动。
-
-
+### 5.1 单点启动：
 
 #### ai-chat-backend
 
@@ -236,6 +232,13 @@ cd ./tokenizer
 nuxt --port ${PORT} --module deepseek_tokenizer.py --workers 2
 ```
 
+#### reprise
+
+```bash
+cd ./reprise
+go run cmd/main.go
+```
+
 #### openai-api-proxy
 
 ```bash
@@ -245,18 +248,39 @@ go run main.go
 
 
 
-### 5.2 Docker 容器化部署
+### 5.2 Docker Swarm 集群部署
 
-提供 `ai-chat-stack`部署配置，可通过 `docker stack `将多个服务统一部署。
+**1.构建本地镜像**
+
+在集群部署前，需先构建 Docker 镜像。请在项目根目录下依次执行以下命令：
+
+```bash
+sudo docker build -t tokenizer:1.0.0 ./tokenizer
+sudo docker build -t keywords-filter:1.0.0 ./keywords-filter
+sudo docker build -t ai-chat-service:1.0.0 ./ai-chat-service
+sudo docker build -t open-ai-proxy:1.0.0 ./openai-api-proxy
+sudo docker build -t reprise:1.0.0 ./reprise
+sudo docker build -t ai-chat-backend:1.0.0 ./ai-chat-backend
+```
+
+**2.部署应用栈**
+
+提供应用栈（stack）配置文件，可通过 `docker stack `命令将容器统一部署至 Swarm 集群中。
 
 ```bash
 cd ./ai-chat-stack
-docker stack deploy -c compose.yaml ai-chat --resolve never
+sudo docker stack deploy -c ./ai-chat-stack/compose.yaml ai-chat --resolve-image never
 ```
 
-注：
+注意事项与配置说明
 
-1. 无论是单点启动还是容器化部署，都需要提前配置各服务对应的 IP 地址、端口以及相关模型参数。
-2. `tokenizer` 需要根据不同的模型自行设置，不同模型的 `token` 计算方式可能存在差异。
-3. 容器化部署需要提前在本地下载好镜像，并保证环境正常运行。
+1. **环境准备与镜像加载**：
+   * 部署前请确保本地环境已成功初始化 Docker Swarm （如未开启，请先执行 `docker swarm init`）
+   * 集群各节点需提前准备好上述镜像，并确保基础运行环境与 Dockerfile 一致。
+2. **配置文件与参数调整**：
+   * 无论采用单点/单进程启动还是容器化集群部署，均需在启动前正确配置对应的 IP 地址、服务端口以及模型相关参数。
+   * Tokenizer 服务：需根据实际调用的 LLM 模型进行自定义配置，不同模型的 Token 分词与计算逻辑可能存在差异。
+3. **缓存依赖**：
+   * 本项目默认的缓存实现可参考：[yansss626/semanticGo/lidis](https://github.com/yansss626/semanticGo/lidis?utm_source=gemini)。
+   * 也可以根据实际需求替换或扩展为 Redis 等其它缓存方案。
 
