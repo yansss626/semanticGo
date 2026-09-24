@@ -7,8 +7,8 @@ require (
 	github.com/kshard/vector v0.1.1
 	github.com/sirupsen/logrus v1.10.2
 	github.com/spf13/viper v1.21.0
-	github.com/yansss626/go-mrpc v0.0.0-00010101000000-000000000000
 	github.com/yansss626/go-lidis v0.3.0
+	github.com/yansss626/go-mrpc v1.0.1
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	k8s.io/klog/v2 v2.140.0
 )
@@ -36,5 +36,3 @@ require (
 	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
 )
-
-replace github.com/yansss626/go-mrpc => ../mrpc
