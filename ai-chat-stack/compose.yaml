@@ -48,6 +48,42 @@ services:
     configs:
       - source: ai-chat-service-conf
         target: /app/config.yaml
+  open-ai-proxy:
+    image: open-ai-proxy:1.0.0
+    deploy:
+      mode: replicated
+      replicas: 2
+      endpoint_mode: vip
+      update_config:
+        parallelism: 2
+        order: start-first
+      rollback_config:
+        parallelism: 2
+        order: start-first
+    entrypoint: [ "./openai-api-proxy" ]
+    command: [ "--config=config.yaml" ]
+    configs:
+      - source: openai-api-proxy-conf
+        target: /app/config.yaml
+  reprise:
+    image: reprise:1.0.0
+    deploy:
+      mode: replicated
+      replicas: 1
+      endpoint_mode: vip
+      update_config:
+        parallelism: 1
+        order: start-first
+      rollback_config:
+        parallelism: 1
+        order: start-first
+    entrypoint: [ "./reprise" ]
+    command: [ "--config=config.yaml" ]
+    volumes:
+      - /home/yansss/share/semanticGo/docker-data:/app/data
+    configs:
+      - source: reprise-conf
+        target: /app/config.yaml
   ai-chat-backend:
     image: ai-chat-backend:1.0.0
     ports:
@@ -82,3 +118,7 @@ configs:
     file: ./configs/ai-chat-service.yaml
   ai-chat-backend-conf:
     file: ./configs/ai-chat-backend.yaml
+  openai-api-proxy-conf:
+    file: ./configs/openai-api-proxy.yaml
+  reprise-conf:
+    file: ./configs/reprise.yaml

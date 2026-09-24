@@ -1,0 +1,22 @@
+server:
+  ip: 0.0.0.0
+  port: 6666
+log:
+  level: "info"
+  logPath: "runtime/logs/app.log"
+embedding: # Embedding 模型，将问题文本转化为数字向量
+  api_key: "your api key"
+  base_url: "your base url" 
+  model: "qwen3.7-text-embedding"
+  vector_dimensions: 1024
+  recall_score: 0.85
+  topK: 10
+rerank: 
+  api_key: "your api key"
+  base_url: "your base url" 
+  model: "qwen3-rerank"
+  instruct: "Retrieve semantically similar text"
+  rerank_score: 0.85
+cache:
+  ip: 192.168.184.138
+  port: 2000

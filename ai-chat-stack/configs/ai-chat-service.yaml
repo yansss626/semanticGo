@@ -10,7 +10,7 @@ chat:
   # openai key
   api_key: "i0jey84SdkFdw5u43780yjr3h7se8nth0yi295nr94ksDngKprEh"
   # openai 接口地址
-  base_url: "http://192.168.184.138:8084/v1"
+  base_url: "http://open-ai-proxy:8084/v1"
   # 使用的训练模型
   model: "deepseek-v4-pro"
   # 单次请求的上下文总长度,包括：请求消息+响应消息
@@ -44,7 +44,7 @@ dependOn:
   tokenizer:
     address: "http://tokenizer:3002"
   semantic:
-    address: "192.168.184.138:6666"
+    address: "reprise:6666"
 cache:
   ip: 192.168.184.138
   port: 2000
