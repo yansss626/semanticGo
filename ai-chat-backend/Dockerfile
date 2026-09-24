@@ -1,11 +1,11 @@
 # 编译阶段
-FROM quay.io/0voice/golang:1.25 as stage0
+FROM quay.io/0voice/golang:1.25 AS stage0
 RUN go env -w GOPROXY=https://proxy.golang.com.cn,https://goproxy.cn,direct
 ADD ./ /src/ai-chat-backend
 WORKDIR /src/ai-chat-backend
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ai-chat-backend cmd/*.go
 
-FROM quay.io/0voice/alpine:3.18 as stage1
+FROM quay.io/0voice/alpine:3.18 AS stage1
 ADD ./curl-amd64 /usr/bin/curl
 RUN chmod +x /usr/bin/curl
 WORKDIR /app/
